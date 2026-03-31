@@ -1,0 +1,11 @@
+{
+  "name": "paceproject",
+  "version": "1.0.0",
+  "description": "My website",
+  "scripts": {
+    "start": "npx live-server --port=3000 --no-browser"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
