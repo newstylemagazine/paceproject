@@ -1,0 +1,31 @@
+{
+  "name": "Website Development",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Website Preview",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "ecmel.vscode-html-css",
+        "formulahendry.auto-close-tag",
+        "formulahendry.auto-rename-tag",
+        "naumovs.color-highlight",
+        "ritwickdey.LiveServer"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "liveServer.settings.port": 3000,
+        "liveServer.settings.donotShowInfoMsg": true
+      }
+    }
+  }
+}
