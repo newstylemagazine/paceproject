@@ -2,7 +2,7 @@ name: Deploy TRaCE Searchable
 
 on:
   push:
-    branches: [main]
+    branches: [main, copilot/setup-website-codespace]
   workflow_dispatch:
 
 permissions:
