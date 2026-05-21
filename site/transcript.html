@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRaCE Transcript Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="transcript.css" />
+  </head>
+  <body>
+    <main class="page transcript-page">
+      <a class="back-link" href="index.html">Back to search</a>
+      <header class="transcript-hero">
+        <p class="eyebrow" id="sourceName">Transcript</p>
+        <h1 id="title">Loading transcript...</h1>
+        <p class="subtitle" id="meta"></p>
+      </header>
+
+      <section class="transcript-actions">
+        <a id="sourceLink" class="source-link" target="_blank" rel="noreferrer">Open original source</a>
+        <a id="videoMomentLink" class="video-link is-hidden" target="_blank" rel="noreferrer">Watch relevant moment</a>
+      </section>
+
+      <section id="videoPanel" class="video-panel is-hidden">
+        <iframe id="videoFrame" title="YouTube video context" allowfullscreen></iframe>
+      </section>
+
+      <section class="status" id="status">Loading transcript data...</section>
+      <article class="transcript-content" id="transcript"></article>
+    </main>
+
+    <script src="transcript.js"></script>
+  </body>
+</html>

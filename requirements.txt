@@ -1,0 +1,4 @@
+beautifulsoup4>=4.12.3
+requests>=2.32.3
+yt-dlp>=2025.6.9
+youtube-transcript-api>=0.6.2
