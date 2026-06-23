@@ -518,11 +518,13 @@ function showIDPPrompt(terms) {
   currentGoalId = getNextEmptyGoalSlot(getIDP()) + 1;
   
   idpSidebar.classList.add("active");
+  document.querySelector('.main-content-wrapper').classList.add('with-sidebar');
   idpAnswer.focus();
 }
 
 function hideIDPSidebar() {
   idpSidebar.classList.remove("active");
+  document.querySelector('.main-content-wrapper').classList.remove('with-sidebar');
   idpAnswer.value = "";
 }
 

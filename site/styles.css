@@ -29,9 +29,13 @@ body {
 
 .main-content-wrapper {
   display: grid;
-  grid-template-columns: 1fr 350px;
+  grid-template-columns: 1fr;
   gap: 2rem;
   align-items: start;
+}
+
+.main-content-wrapper.with-sidebar {
+  grid-template-columns: 1fr 350px;
 }
 
 .content-area {

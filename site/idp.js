@@ -248,10 +248,18 @@ function getIDPProgress() {
     if (goal.type) filled++;
     if (goal.domain) filled++;
     if (goal.specific.goal) filled++;
+    if (goal.specific.activities) filled++;
     if (goal.measurable.success) filled++;
+    if (goal.measurable.dueDate) filled++;
     if (goal.abilities) filled++;
     if (goal.relevant) filled++;
+    if (goal.tenable.doable) filled++;
+    if (goal.tenable.resources) filled++;
+    if (goal.tenable.obstacles) filled++;
   });
+  
+  // Update total to match actual fields checked
+  total = idp.goals.length * 12;
   
   return Math.round((filled / total) * 100);
 }
