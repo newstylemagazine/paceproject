@@ -290,6 +290,7 @@
       // Render IDP page
       function renderIDP() {
         const idp = getIDP();
+        console.log('Rendering IDP:', idp);
         const content = document.getElementById('idpContent');
         const emptyState = document.getElementById('emptyState');
         const progressFill = document.getElementById('progressFill');
@@ -297,6 +298,7 @@
         
         // Update progress
         const progress = getIDPProgress();
+        console.log('Progress:', progress);
         progressFill.style.width = progress + '%';
         progressText.textContent = progress + '% Complete';
         
@@ -446,6 +448,8 @@
         const idp = getIDP();
         const goal = idp.goals[goalIndex];
         
+        console.log('Updating goal field:', { goalIndex, fieldPath, value, goal });
+        
         const pathParts = fieldPath.split('.');
         if (pathParts.length === 1) {
           goal[pathParts[0]] = value;
@@ -454,6 +458,7 @@
         }
         
         saveIDP(idp);
+        console.log('Saved IDP, re-rendering...');
         renderIDP();
       }
       
