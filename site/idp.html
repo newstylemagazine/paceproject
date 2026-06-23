@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Individual Development Plan - TRaCE Searchable</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .idp-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--brand);
+      }
+      
+      .idp-header h1 {
+        margin: 0;
+        font-size: 2rem;
+      }
+      
+      .idp-actions {
+        display: flex;
+        gap: 0.75rem;
+      }
+      
+      .idp-button {
+        background: var(--brand);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 6px;
+        font-family: "Computer Modern Sans", Arial, sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      
+      .idp-button:hover {
+        background: var(--brand-dark);
+      }
+      
+      .idp-button.secondary {
+        background: white;
+        color: var(--brand);
+        border: 2px solid var(--brand);
+      }
+      
+      .idp-button.secondary:hover {
+        background: #fff5f6;
+      }
+      
+      .progress-bar {
+        background: #f4f4f4;
+        border-radius: 10px;
+        height: 8px;
+        margin-bottom: 2rem;
+        overflow: hidden;
+      }
+      
+      .progress-fill {
+        background: var(--brand);
+        height: 100%;
+        transition: width 0.3s ease;
+      }
+      
+      .progress-text {
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-top: -1.5rem;
+        margin-bottom: 2rem;
+      }
+      
+      .goal-section {
+        background: white;
+        border: 1px solid var(--stroke);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      
+      .goal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      
+      .goal-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        color: var(--brand);
+      }
+      
+      .goal-number {
+        background: var(--brand);
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 0.75rem;
+      }
+      
+      .goal-title-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      
+      .goal-title-row input {
+        flex: 1;
+        padding: 0.6rem;
+        border: 1px solid var(--stroke);
+        border-radius: 4px;
+        font-size: 1rem;
+      }
+      
+      .goal-type-domain {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      
+      .goal-type-domain select {
+        flex: 1;
+        padding: 0.5rem;
+        border: 1px solid var(--stroke);
+        border-radius: 4px;
+        font-family: inherit;
+      }
+      
+      .smart-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      
+      .smart-field {
+        background: #f9f9f9;
+        padding: 1rem;
+        border-radius: 6px;
+      }
+      
+      .smart-field label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--brand);
+        font-size: 0.9rem;
+      }
+      
+      .smart-field textarea,
+      .smart-field input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--stroke);
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 0.9rem;
+        resize: vertical;
+      }
+      
+      .smart-field textarea {
+        min-height: 80px;
+      }
+      
+      .support-section {
+        background: white;
+        border: 1px solid var(--stroke);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      
+      .support-section h2 {
+        margin: 0 0 1rem;
+        color: var(--brand);
+      }
+      
+      .support-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+      
+      .support-person {
+        background: #f9f9f9;
+        padding: 1rem;
+        border-radius: 6px;
+      }
+      
+      .support-person input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--stroke);
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        font-family: inherit;
+      }
+      
+      .timeline-section,
+      .notes-section {
+        background: white;
+        border: 1px solid var(--stroke);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      
+      .timeline-section h2,
+      .notes-section h2 {
+        margin: 0 0 1rem;
+        color: var(--brand);
+      }
+      
+      .timeline-section textarea,
+      .notes-section textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--stroke);
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        resize: vertical;
+        min-height: 150px;
+      }
+      
+      .back-link {
+        display: inline-block;
+        margin-bottom: 1rem;
+        color: var(--brand);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      
+      .back-link:hover {
+        text-decoration: underline;
+      }
+      
+      .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--muted);
+      }
+      
+      .empty-state p {
+        margin-bottom: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <a href="index.html" class="back-link">← Back to Search</a>
+      
+      <div class="idp-header">
+        <h1>Individual Development Plan</h1>
+        <div class="idp-actions">
+          <button class="idp-button secondary" onclick="exportIDPText()">Export as Text</button>
+          <button class="idp-button secondary" onclick="exportIDP()">Export as JSON</button>
+          <button class="idp-button" onclick="saveAllGoals()">Save All</button>
+        </div>
+      </div>
+      
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+      </div>
+      <p class="progress-text" id="progressText">0% Complete</p>
+      
+      <div id="idpContent">
+        <!-- Goals will be rendered here -->
+      </div>
+      
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <p>You haven't started your IDP yet. Search for topics like "career", "mentorship", or "skills" to get prompted with IDP questions as you explore the interviews.</p>
+        <a href="index.html" class="idp-button">Start Exploring</a>
+      </div>
+    </main>
+    
+    <script src="idp.js"></script>
+    <script>
+      // Render IDP page
+      function renderIDP() {
+        const idp = getIDP();
+        const content = document.getElementById('idpContent');
+        const emptyState = document.getElementById('emptyState');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        
+        // Update progress
+        const progress = getIDPProgress();
+        progressFill.style.width = progress + '%';
+        progressText.textContent = progress + '% Complete';
+        
+        // Check if IDP has been started
+        if (!hasStartedIDP()) {
+          content.style.display = 'none';
+          emptyState.style.display = 'block';
+          return;
+        }
+        
+        content.style.display = 'block';
+        emptyState.style.display = 'none';
+        
+        let html = '';
+        
+        // Render goals
+        idp.goals.forEach((goal, index) => {
+          html += `
+            <div class="goal-section">
+              <div class="goal-header">
+                <div class="goal-title-row">
+                  <div class="goal-number">${index + 1}</div>
+                  <input type="text" 
+                         placeholder="Goal title..." 
+                         value="${goal.title || ''}"
+                         onchange="updateGoalField(${index}, 'title', this.value)">
+                </div>
+              </div>
+              
+              <div class="goal-type-domain">
+                <select onchange="updateGoalField(${index}, 'type', this.value)">
+                  <option value="">Goal Type</option>
+                  <option value="Project" ${goal.type === 'Project' ? 'selected' : ''}>Project</option>
+                  <option value="Habit" ${goal.type === 'Habit' ? 'selected' : ''}>Habit</option>
+                  <option value="Development" ${goal.type === 'Development' ? 'selected' : ''}>Development</option>
+                </select>
+                <select onchange="updateGoalField(${index}, 'domain', this.value)">
+                  <option value="">Domain</option>
+                  <option value="Academic" ${goal.domain === 'Academic' ? 'selected' : ''}>Academic</option>
+                  <option value="Personal Well-being" ${goal.domain === 'Personal Well-being' ? 'selected' : ''}>Personal Well-being</option>
+                  <option value="Professional/Career Development" ${goal.domain === 'Professional/Career Development' ? 'selected' : ''}>Professional/Career Development</option>
+                </select>
+              </div>
+              
+              <div class="smart-grid">
+                <div class="smart-field">
+                  <label>Specific - Goal</label>
+                  <textarea placeholder="My goal is..." 
+                            onchange="updateGoalField(${index}, 'specific.goal', this.value)">${goal.specific.goal || ''}</textarea>
+                </div>
+                <div class="smart-field">
+                  <label>Specific - Activities</label>
+                  <textarea placeholder="Activities that will help..." 
+                            onchange="updateGoalField(${index}, 'specific.activities', this.value)">${goal.specific.activities || ''}</textarea>
+                </div>
+                <div class="smart-field">
+                  <label>Measurable - Success</label>
+                  <textarea placeholder="I will know I succeeded when..." 
+                            onchange="updateGoalField(${index}, 'measurable.success', this.value)">${goal.measurable.success || ''}</textarea>
+                </div>
+                <div class="smart-field">
+                  <label>Measurable - Due Date</label>
+                  <input type="text" 
+                         placeholder="Due date or timeframe..." 
+                         value="${goal.measurable.dueDate || ''}"
+                         onchange="updateGoalField(${index}, 'measurable.dueDate', this.value)">
+                </div>
+                <div class="smart-field">
+                  <label>Abilities</label>
+                  <textarea placeholder="I will develop abilities in..." 
+                            onchange="updateGoalField(${index}, 'abilities', this.value)">${goal.abilities || ''}</textarea>
+                </div>
+                <div class="smart-field">
+                  <label>Relevant</label>
+                  <textarea placeholder="I want to pursue this because..." 
+                            onchange="updateGoalField(${index}, 'relevant', this.value)">${goal.relevant || ''}</textarea>
+                </div>
+                <div class="smart-field">
+                  <label>Tenable - Doable</label>
+                  <textarea placeholder="I know this is doable because..." 
+                            onchange="updateGoalField(${index}, 'tenable.doable', this.value)">${goal.tenable.doable || ''}</textarea>
+                </div>
+                <div class="smart-field">
+                  <label>Tenable - Resources</label>
+                  <textarea placeholder="I will need these resources..." 
+                            onchange="updateGoalField(${index}, 'tenable.resources', this.value)">${goal.tenable.resources || ''}</textarea>
+                </div>
+                <div class="smart-field">
+                  <label>Tenable - Obstacles (IF/THEN)</label>
+                  <textarea placeholder="IF I encounter a challenge, THEN I will..." 
+                            onchange="updateGoalField(${index}, 'tenable.obstacles', this.value)">${goal.tenable.obstacles || ''}</textarea>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        // Support team
+        html += `
+          <div class="support-section">
+            <h2>Support Team</h2>
+            <div class="support-grid">
+        `;
+        
+        idp.supportTeam.forEach((person, index) => {
+          html += `
+            <div class="support-person">
+              <input type="text" 
+                     placeholder="Name" 
+                     value="${person.name || ''}"
+                     onchange="updateSupportPerson(${index}, 'name', this.value)">
+              <input type="text" 
+                     placeholder="Role" 
+                     value="${person.role || ''}"
+                     onchange="updateSupportPerson(${index}, 'role', this.value)">
+            </div>
+          `;
+        });
+        
+        html += `
+            </div>
+          </div>
+        `;
+        
+        // Timeline
+        html += `
+          <div class="timeline-section">
+            <h2>Timeline</h2>
+            <textarea placeholder="Sketch out your timeline for the next year..." 
+                      onchange="updateTimeline(this.value)">${idp.timeline || ''}</textarea>
+          </div>
+        `;
+        
+        // Notes
+        html += `
+          <div class="notes-section">
+            <h2>Notes & Reflections</h2>
+            <textarea placeholder="Write down any reflections, notes, ideas, questions, or challenges..." 
+                      onchange="updateNotes(this.value)">${idp.notes || ''}</textarea>
+          </div>
+        `;
+        
+        content.innerHTML = html;
+      }
+      
+      function updateGoalField(goalIndex, fieldPath, value) {
+        const idp = getIDP();
+        const goal = idp.goals[goalIndex];
+        
+        const pathParts = fieldPath.split('.');
+        if (pathParts.length === 1) {
+          goal[pathParts[0]] = value;
+        } else if (pathParts.length === 2) {
+          goal[pathParts[0]][pathParts[1]] = value;
+        }
+        
+        saveIDP(idp);
+        renderIDP();
+      }
+      
+      function updateSupportPerson(index, field, value) {
+        const idp = getIDP();
+        idp.supportTeam[index][field] = value;
+        saveIDP(idp);
+      }
+      
+      function updateTimeline(value) {
+        const idp = getIDP();
+        idp.timeline = value;
+        saveIDP(idp);
+      }
+      
+      function updateNotes(value) {
+        const idp = getIDP();
+        idp.notes = value;
+        saveIDP(idp);
+      }
+      
+      function saveAllGoals() {
+        // Already saving on change, but this gives visual feedback
+        const btn = event.target;
+        btn.textContent = 'Saved!';
+        setTimeout(() => {
+          btn.textContent = 'Save All';
+        }, 1000);
+      }
+      
+      // Initial render
+      renderIDP();
+    </script>
+  </body>
+</html>

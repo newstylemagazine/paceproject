@@ -313,6 +313,9 @@ function renderResults(query) {
 
   statusNode.textContent = `Found ${filtered.length} results for "${query}". Showing top ${visible.length}.`;
   summarizeInsights(visible, terms);
+  
+  // Show IDP prompt based on search terms
+  showIDPPrompt(terms);
 
   if (!visible.length) {
     const empty = document.createElement("article");
@@ -492,6 +495,53 @@ queryInput.addEventListener("keydown", (event) => {
 searchButton.addEventListener("click", () => renderResults(queryInput.value.trim()));
 sortMode.addEventListener("change", () => renderResults(queryInput.value.trim()));
 limitSelect.addEventListener("change", () => renderResults(queryInput.value.trim()));
+
+// IDP Integration
+const idpPrompt = document.getElementById("idpPrompt");
+const idpQuestion = document.getElementById("idpQuestion");
+const idpHint = document.getElementById("idpHint");
+const idpAnswer = document.getElementById("idpAnswer");
+const idpSaveButton = document.getElementById("idpSaveButton");
+const idpSkipButton = document.getElementById("idpSkipButton");
+
+let currentIDPField = null;
+let currentGoalId = null;
+
+function showIDPPrompt(terms) {
+  const prompt = getIDPPrompt(terms);
+  if (!prompt) return;
+  
+  idpQuestion.textContent = prompt.question;
+  idpHint.textContent = prompt.hint;
+  idpAnswer.value = "";
+  currentIDPField = prompt.field;
+  currentGoalId = getNextEmptyGoalSlot(getIDP()) + 1;
+  
+  idpPrompt.style.display = "block";
+  idpAnswer.focus();
+}
+
+function hideIDPPrompt() {
+  idpPrompt.style.display = "none";
+  idpAnswer.value = "";
+}
+
+idpSaveButton.addEventListener("click", () => {
+  const answer = idpAnswer.value.trim();
+  if (!answer) {
+    alert("Please enter your answer");
+    return;
+  }
+  
+  updateIDPField(currentGoalId, currentIDPField, answer);
+  idpSaveButton.textContent = "Saved!";
+  setTimeout(() => {
+    idpSaveButton.textContent = "Save to IDP";
+    hideIDPPrompt();
+  }, 1000);
+});
+
+idpSkipButton.addEventListener("click", hideIDPPrompt);
 
 initialize().catch((error) => {
   statusNode.textContent = `Failed to initialize search: ${error.message}`;

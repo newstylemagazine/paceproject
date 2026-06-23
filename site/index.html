@@ -49,6 +49,22 @@
       <section class="stats-grid" id="statsGrid"></section>
       <section class="insights" id="insights"></section>
       <section class="results" id="results" aria-live="polite"></section>
+      
+      <section class="idp-prompt" id="idpPrompt" aria-label="IDP Question" style="display: none;">
+        <div class="idp-prompt-content">
+          <h3>💡 Build Your Individual Development Plan</h3>
+          <p class="idp-question" id="idpQuestion"></p>
+          <p class="idp-hint" id="idpHint"></p>
+          <div class="idp-input-row">
+            <textarea id="idpAnswer" placeholder="Type your answer here..." rows="3"></textarea>
+            <button id="idpSaveButton" type="button">Save to IDP</button>
+          </div>
+          <div class="idp-actions">
+            <a href="idp.html" class="idp-view-link">View Full IDP</a>
+            <button id="idpSkipButton" type="button" class="idp-skip">Skip for now</button>
+          </div>
+        </div>
+      </section>
     </main>
 
     <template id="resultTemplate">
@@ -72,6 +88,7 @@
       </article>
     </template>
 
+    <script src="idp.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
