@@ -74,6 +74,36 @@
         margin-bottom: 2rem;
       }
       
+      .progress-summary {
+        background: #f9f9f9;
+        border: 1px solid var(--stroke);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+      }
+      
+      .progress-summary h4 {
+        margin: 0 0 0.75rem;
+        color: var(--brand);
+        font-size: 1rem;
+      }
+      
+      .progress-summary ul {
+        margin: 0;
+        padding-left: 1.25rem;
+        font-size: 0.9rem;
+        color: var(--text);
+      }
+      
+      .progress-summary li {
+        margin-bottom: 0.5rem;
+      }
+      
+      .progress-summary .empty {
+        color: var(--muted);
+        font-style: italic;
+      }
+      
       .goal-section {
         background: white;
         border: 1px solid var(--stroke);
@@ -274,6 +304,7 @@
         <div class="progress-fill" id="progressFill" style="width: 0%"></div>
       </div>
       <p class="progress-text" id="progressText">0% Complete</p>
+      <div class="progress-summary" id="progressSummary"></div>
       
       <div id="idpContent">
         <!-- Goals will be rendered here -->
@@ -301,6 +332,33 @@
         console.log('Progress:', progress);
         progressFill.style.width = progress + '%';
         progressText.textContent = progress + '% Complete';
+        
+        // Update progress summary
+        const summaryDiv = document.getElementById('progressSummary');
+        const filledFields = [];
+        
+        idp.goals.forEach((goal, index) => {
+          if (goal.title) filledFields.push(`Goal ${index + 1}: Title`);
+          if (goal.specific.goal) filledFields.push(`Goal ${index + 1}: Specific Goal`);
+          if (goal.specific.activities) filledFields.push(`Goal ${index + 1}: Activities`);
+          if (goal.measurable.success) filledFields.push(`Goal ${index + 1}: Success Criteria`);
+          if (goal.abilities) filledFields.push(`Goal ${index + 1}: Abilities`);
+          if (goal.relevant) filledFields.push(`Goal ${index + 1}: Relevance`);
+        });
+        
+        if (idp.timeline) filledFields.push('Timeline');
+        if (idp.notes) filledFields.push('Notes');
+        
+        if (filledFields.length > 0) {
+          summaryDiv.innerHTML = `
+            <h4>What you've completed:</h4>
+            <ul>
+              ${filledFields.map(field => `<li>${field}</li>`).join('')}
+            </ul>
+          `;
+        } else {
+          summaryDiv.innerHTML = '<p class="empty">No fields filled yet. Start by searching for topics and answering IDP questions.</p>';
+        }
         
         // Check if IDP has been started
         if (!hasStartedIDP()) {
