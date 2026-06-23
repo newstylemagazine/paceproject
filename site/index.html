@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRaCE Searchable</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">TRaCE Corpus Explorer</p>
+        <h1>TRaCE Searchable</h1>
+        <p class="subtitle">Search themes, names, and terms across TRaCE interviews and transcripts, with highlighted context and quick insights.</p>
+      </header>
+
+      <section class="quote-splash-hero" id="quoteSplashHero" aria-label="Featured voice"></section>
+
+      <section class="search-panel" aria-label="Search transcripts">
+        <div class="search-row">
+          <input id="query" type="search" placeholder="Try: mentorship, transition, funding, burnout" autocomplete="off" />
+          <button id="searchButton" type="button">Search</button>
+        </div>
+
+        <p class="search-help">Use one word or a short phrase. Example: <span class="inline-chip">international students</span> <span class="inline-chip">work-life balance</span> <span class="inline-chip">leaving academia</span></p>
+
+        <div class="themes" id="themes" aria-label="Suggested themes"></div>
+
+        <div class="controls-row">
+          <label for="sortMode">Sort</label>
+          <select id="sortMode">
+            <option value="relevance" selected>Most Relevant</option>
+            <option value="recent">Most Recent</option>
+          </select>
+
+          <label for="limit">Results</label>
+          <select id="limit">
+            <option value="20">20</option>
+            <option value="40" selected>40</option>
+            <option value="80">80</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="quote-splash-grid" id="quoteSplashGrid" aria-label="Voices from the interviews"></section>
+
+      <section class="status" id="status">Loading transcript index...</section>
+      <section class="stats-grid" id="statsGrid"></section>
+      <section class="insights" id="insights"></section>
+      <section class="results" id="results" aria-live="polite"></section>
+    </main>
+
+    <template id="resultTemplate">
+      <article class="result-card">
+        <header>
+          <div class="result-headline">
+            <h2 class="result-title"></h2>
+            <span class="score-badge"></span>
+          </div>
+          <div class="meta"></div>
+        </header>
+        <p class="why-match"></p>
+        <p class="snippet"></p>
+        <div class="tag-row"></div>
+        <div class="actions-row">
+          <a class="transcript-link">Read full transcript</a>
+          <a class="video-link" target="_blank" rel="noreferrer">Watch relevant moment</a>
+          <a class="source-link" target="_blank" rel="noreferrer">Open original source</a>
+          <button class="copy-quote" type="button">Copy quote</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>

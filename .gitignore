@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+
+# YouTube extraction temp and local auth artifacts
+data/tracetransborder/.tmp/
+data/tracetransborder/youtube-cookies.txt
