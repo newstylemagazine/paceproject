@@ -497,12 +497,12 @@ sortMode.addEventListener("change", () => renderResults(queryInput.value.trim())
 limitSelect.addEventListener("change", () => renderResults(queryInput.value.trim()));
 
 // IDP Integration
-const idpPrompt = document.getElementById("idpPrompt");
+const idpSidebar = document.getElementById("idpSidebar");
 const idpQuestion = document.getElementById("idpQuestion");
 const idpHint = document.getElementById("idpHint");
 const idpAnswer = document.getElementById("idpAnswer");
 const idpSaveButton = document.getElementById("idpSaveButton");
-const idpSkipButton = document.getElementById("idpSkipButton");
+const idpCloseSidebar = document.getElementById("idpCloseSidebar");
 
 let currentIDPField = null;
 let currentGoalId = null;
@@ -517,12 +517,12 @@ function showIDPPrompt(terms) {
   currentIDPField = prompt.field;
   currentGoalId = getNextEmptyGoalSlot(getIDP()) + 1;
   
-  idpPrompt.style.display = "block";
+  idpSidebar.classList.add("active");
   idpAnswer.focus();
 }
 
-function hideIDPPrompt() {
-  idpPrompt.style.display = "none";
+function hideIDPSidebar() {
+  idpSidebar.classList.remove("active");
   idpAnswer.value = "";
 }
 
@@ -536,12 +536,20 @@ idpSaveButton.addEventListener("click", () => {
   updateIDPField(currentGoalId, currentIDPField, answer);
   idpSaveButton.textContent = "Saved!";
   setTimeout(() => {
-    idpSaveButton.textContent = "Save to IDP";
-    hideIDPPrompt();
+    idpSaveButton.textContent = "Save";
+    // Keep sidebar open, just clear the answer
+    idpAnswer.value = "";
+    // Move to next question if available
+    const idp = getIDP();
+    const nextSlot = getNextEmptyGoalSlot(idp);
+    if (nextSlot !== -1) {
+      currentGoalId = nextSlot + 1;
+      // Could load next question here if desired
+    }
   }, 1000);
 });
 
-idpSkipButton.addEventListener("click", hideIDPPrompt);
+idpCloseSidebar.addEventListener("click", hideIDPSidebar);
 
 initialize().catch((error) => {
   statusNode.textContent = `Failed to initialize search: ${error.message}`;

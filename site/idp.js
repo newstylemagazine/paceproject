@@ -129,6 +129,8 @@ function getIDPPrompt(searchTerms) {
 function updateIDPField(goalId, fieldPath, value) {
   const idp = getIDP();
   
+  console.log('Updating IDP field:', { goalId, fieldPath, value });
+  
   if (fieldPath === 'supportTeam') {
     const index = parseInt(goalId) - 1;
     if (index >= 0 && index < idp.supportTeam.length) {
@@ -137,18 +139,21 @@ function updateIDPField(goalId, fieldPath, value) {
   } else if (fieldPath === 'notes' || fieldPath === 'timeline') {
     idp[fieldPath] = value;
   } else {
-    const goal = idp.goals.find(g => g.id === parseInt(goalId));
-    if (goal) {
+    const goalIndex = parseInt(goalId) - 1;
+    if (goalIndex >= 0 && goalIndex < idp.goals.length) {
+      const goal = idp.goals[goalIndex];
       const pathParts = fieldPath.split('.');
       if (pathParts.length === 1) {
         goal[pathParts[0]] = value;
       } else if (pathParts.length === 2) {
         goal[pathParts[0]][pathParts[1]] = value;
       }
+      console.log('Updated goal:', goal);
     }
   }
   
   saveIDP(idp);
+  console.log('Saved IDP:', idp);
   return idp;
 }
 

@@ -13,58 +13,65 @@
         <p class="eyebrow">TRaCE Corpus Explorer</p>
         <h1>TRaCE Searchable</h1>
         <p class="subtitle">Search themes, names, and terms across TRaCE interviews and transcripts, with highlighted context and quick insights.</p>
+        <a href="idp.html" class="idp-header-button">📋 View My IDP</a>
       </header>
 
-      <section class="quote-splash-hero" id="quoteSplashHero" aria-label="Featured voice"></section>
+      <div class="main-content-wrapper">
+        <div class="content-area">
+          <section class="quote-splash-hero" id="quoteSplashHero" aria-label="Featured voice"></section>
 
-      <section class="search-panel" aria-label="Search transcripts">
-        <div class="search-row">
-          <input id="query" type="search" placeholder="Try: mentorship, transition, funding, burnout" autocomplete="off" />
-          <button id="searchButton" type="button">Search</button>
+          <section class="search-panel" aria-label="Search transcripts">
+            <div class="search-row">
+              <input id="query" type="search" placeholder="Try: mentorship, transition, funding, burnout" autocomplete="off" />
+              <button id="searchButton" type="button">Search</button>
+            </div>
+
+            <p class="search-help">Use one word or a short phrase. Example: <span class="inline-chip">international students</span> <span class="inline-chip">work-life balance</span> <span class="inline-chip">leaving academia</span></p>
+
+            <div class="themes" id="themes" aria-label="Suggested themes"></div>
+
+            <div class="controls-row">
+              <label for="sortMode">Sort</label>
+              <select id="sortMode">
+                <option value="relevance" selected>Most Relevant</option>
+                <option value="recent">Most Recent</option>
+              </select>
+
+              <label for="limit">Results</label>
+              <select id="limit">
+                <option value="20">20</option>
+                <option value="40" selected>40</option>
+                <option value="80">80</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="quote-splash-grid" id="quoteSplashGrid" aria-label="Voices from the interviews"></section>
+
+          <section class="status" id="status">Loading transcript index...</section>
+          <section class="stats-grid" id="statsGrid"></section>
+          <section class="insights" id="insights"></section>
+          <section class="results" id="results" aria-live="polite"></section>
         </div>
 
-        <p class="search-help">Use one word or a short phrase. Example: <span class="inline-chip">international students</span> <span class="inline-chip">work-life balance</span> <span class="inline-chip">leaving academia</span></p>
-
-        <div class="themes" id="themes" aria-label="Suggested themes"></div>
-
-        <div class="controls-row">
-          <label for="sortMode">Sort</label>
-          <select id="sortMode">
-            <option value="relevance" selected>Most Relevant</option>
-            <option value="recent">Most Recent</option>
-          </select>
-
-          <label for="limit">Results</label>
-          <select id="limit">
-            <option value="20">20</option>
-            <option value="40" selected>40</option>
-            <option value="80">80</option>
-          </select>
-        </div>
-      </section>
-
-      <section class="quote-splash-grid" id="quoteSplashGrid" aria-label="Voices from the interviews"></section>
-
-      <section class="status" id="status">Loading transcript index...</section>
-      <section class="stats-grid" id="statsGrid"></section>
-      <section class="insights" id="insights"></section>
-      <section class="results" id="results" aria-live="polite"></section>
-      
-      <section class="idp-prompt" id="idpPrompt" aria-label="IDP Question" style="display: none;">
-        <div class="idp-prompt-content">
-          <h3>💡 Build Your Individual Development Plan</h3>
-          <p class="idp-question" id="idpQuestion"></p>
-          <p class="idp-hint" id="idpHint"></p>
-          <div class="idp-input-row">
-            <textarea id="idpAnswer" placeholder="Type your answer here..." rows="3"></textarea>
-            <button id="idpSaveButton" type="button">Save to IDP</button>
+        <aside class="idp-sidebar" id="idpSidebar">
+          <div class="idp-sidebar-header">
+            <h3>💡 Build Your IDP</h3>
+            <button class="idp-close-sidebar" id="idpCloseSidebar">×</button>
           </div>
-          <div class="idp-actions">
-            <a href="idp.html" class="idp-view-link">View Full IDP</a>
-            <button id="idpSkipButton" type="button" class="idp-skip">Skip for now</button>
+          <div class="idp-sidebar-content">
+            <p class="idp-question" id="idpQuestion"></p>
+            <p class="idp-hint" id="idpHint"></p>
+            <div class="idp-answer-area">
+              <textarea id="idpAnswer" placeholder="Type your answer here..." rows="4"></textarea>
+              <button id="idpSaveButton" type="button">Save</button>
+            </div>
+            <div class="idp-sidebar-footer">
+              <a href="idp.html" class="idp-view-link">View Full IDP →</a>
+            </div>
           </div>
-        </div>
-      </section>
+        </aside>
+      </div>
     </main>
 
     <template id="resultTemplate">
