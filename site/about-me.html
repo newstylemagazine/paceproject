@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About Me | TRaCE Searchable</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page about-page">
+      <header class="hero">
+        <p class="eyebrow">Generated Profile</p>
+        <h1 id="headline">My About Me</h1>
+        <p id="intro" class="subtitle"></p>
+        <div class="about-actions">
+          <a href="index.html" class="transcript-link">Edit narrative</a>
+          <a href="search.html" class="transcript-link">Browse all interviews</a>
+          <a href="idp.html" class="transcript-link">Open IDP worksheet</a>
+        </div>
+      </header>
+
+      <section class="about-grid">
+        <article class="result-card">
+          <h2>Achievements</h2>
+          <ul id="achievementList"></ul>
+        </article>
+
+        <article class="result-card">
+          <h2>Aspirations</h2>
+          <ul id="aspirationList"></ul>
+        </article>
+
+        <article class="result-card about-span-all">
+          <h2>IDP synthesis</h2>
+          <div class="idp-lines" id="idpLines"></div>
+        </article>
+
+        <article class="result-card about-span-all">
+          <h2>Documents and artifacts</h2>
+          <div id="uploadGallery" class="upload-gallery"></div>
+        </article>
+
+        <article class="result-card about-span-all">
+          <h2>Interview voices aligned to your path</h2>
+          <div id="recommendationList" class="recommendation-list"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="about-me.js"></script>
+  </body>
+</html>

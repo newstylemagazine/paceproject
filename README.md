@@ -2,6 +2,39 @@
 
 This workspace includes extractors for two TRaCE narrative archives and generated transcript data intended for downstream search or retrieval-augmented QA.
 
+## Quick Start (Simple)
+
+If you just want the site running with AI available for everyone:
+
+1. Install requirements:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Create your env file:
+
+```bash
+cp .env.example .env
+```
+
+3. Open `.env` and paste your OpenAI key after `OPENAI_API_KEY=`
+
+4. Start the site:
+
+```bash
+python scripts/start_trace_site.py
+```
+
+5. Open:
+
+- `http://localhost:8000/site/`
+
+Notes:
+
+- If you skip the key, the site still works, but uses fallback mode instead of full AI.
+- With a key in `.env`, AI is shared for all visitors to your deployed app (users do not need their own key).
+
 It also includes:
 
 - a YouTube caption extractor for the TRaCE Transborder channel
@@ -66,6 +99,20 @@ The site reads all available corpus chunk files directly from:
 - `data/tracemcgill/chunks.jsonl`
 - `data/tracephd/chunks.jsonl`
 - `data/tracetransborder/chunks.jsonl`
+
+### Optional: Enable AI synthesis for About Me
+
+The local server now includes an API endpoint at `/api/ai-synthesize` used by the `Let's go` flow on the homepage.
+
+To enable real model-backed synthesis, set:
+
+```bash
+export OPENAI_API_KEY="your_api_key"
+export OPENAI_MODEL="gpt-4o-mini"   # optional
+python scripts/serve_trace_searchable.py
+```
+
+If `OPENAI_API_KEY` is not set, the site still works and uses a local fallback synthesizer.
 
 ## Notes
 

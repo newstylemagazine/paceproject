@@ -215,6 +215,10 @@ function whyThisMatched(record, terms) {
 }
 
 async function renderQuoteSplash() {
+  if (!quoteSplashHero || !quoteSplashGrid) {
+    return;
+  }
+
   try {
     const response = await fetch("quotes.json", { cache: "no-store" });
     if (!response.ok) return;
