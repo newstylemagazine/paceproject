@@ -28,11 +28,48 @@ STOP_WORDS = {
     "any", "its", "we", "they", "them", "his", "her", "she", "him", "who", "what", "where", "when",
 }
 
-SYSTEM_PROMPT = (
-    "You generate concise About Me profile JSON for career reflection. "
-    "Return only valid JSON with keys: headline, intro, achievements, aspirations, idp, recommendations, uploads. "
-    "achievements and aspirations must be arrays of short strings (2-4 items each). "
-    "idp must have keys: specific, measurable, abilities, relevant, tenable, support, each a short sentence."
+MAX_IMAGE_DESCRIPTIONS = 2
+MAX_TEXT_EXCERPT_CHARS = 3000
+
+# Earthy, personal, considerate - the opposite of a corporate IDP worksheet.
+SYNTHESIS_SYSTEM_PROMPT = (
+    "You are a warm, perceptive companion helping someone reflect on their life and "
+    "path by weaving together what they've written, anything they've shared (documents, "
+    "photos), and real voices from an oral-history archive of people describing turning "
+    "points in their own lives.\n\n"
+    "Write with an earthy, personal, considerate tone - like a thoughtful friend sitting "
+    "with them, not a career coach or HR document. Never use corporate language (no "
+    "'leverage', 'actionable', 'KPIs', 'professional development', 'synergy'). Use plain, "
+    "warm, sometimes surprising language. Be specific and grounded in what the person "
+    "actually shared - never generic.\n\n"
+    "Return only valid JSON with these keys:\n"
+    "- mirror_headline: a short phrase (under 12 words) reflecting something true or "
+    "surprising back to the person, drawn from their own words or what they shared.\n"
+    "- reflection: 2-4 warm sentences connecting what they shared to a larger pattern, "
+    "gently noticing something they might not have said outright.\n"
+    "- threads: an array of 2-4 short prompts (each under 20 words), second person - not "
+    "action items, but honest questions or quiet tensions worth sitting with.\n"
+    "- resonances: an array of up to 4 objects with keys 'slug' (must exactly match one of "
+    "the provided interview slugs) and 'why' (one warm, plain-spoken sentence, under 25 "
+    "words, on what resonates - never say 'keyword match' or anything mechanical).\n"
+    "- provocation: one closing sentence, personal and inviting, nudging them to reconsider "
+    "a path without prescribing one."
+)
+
+QUESTION_SYSTEM_PROMPT = (
+    "You help someone reflect on their life and path. They just wrote something, and an "
+    "excerpt from a real interview archive was surfaced alongside it. Write ONE short, "
+    "warm, specific question (under 30 words), addressed directly to them as 'you', "
+    "grounded in a concrete detail from the excerpt, inviting them to keep writing. Earthy, "
+    "personal, considerate - not corporate, not clinical-therapist. "
+    'Return only valid JSON: {"question": "..."}'
+)
+
+IMAGE_DESCRIPTION_PROMPT = (
+    "Someone shared this photo as part of reflecting on their life and work. In 1-2 warm, "
+    "specific sentences, describe what stands out about it and what it might quietly reveal "
+    "about their life, work, or state of mind right now. Be concrete about what you actually "
+    "see - avoid generic phrases."
 )
 
 
@@ -126,59 +163,58 @@ def build_recommendations(text: str, upload_names: list[str]) -> list[dict[str, 
     return sorted(best_by_slug.values(), key=lambda item: item["score"], reverse=True)[:6]
 
 
-def fallback_about_payload(text: str, recommendations: list[dict[str, Any]], uploads: list[dict[str, Any]]) -> dict[str, Any]:
-    achievements = pick_sentences(text, r"achiev|built|led|published|created|completed|improved|launched")
-    aspirations = pick_sentences(text, r"aspir|aim|goal|want|hope|future|next|plan|impact")
-    support = pick_sentences(text, r"mentor|network|support|community|team|advisor|resource", limit=2)
-    risks = pick_sentences(text, r"challenge|obstacle|risk|if\s+.*then", limit=2)
-    sentences = sentence_split(text)
-    intro = " ".join(sentences[:2]) if sentences else "A motivated learner shaping a clear path through reflection and action."
+def gather_upload_context(uploads: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+    """Read whatever content the browser already extracted from uploads (text
+    excerpts for documents, base64 previews for images), describe a couple of
+    images with a vision model if a key is available, and return combined
+    free text plus the (possibly annotated) uploads list."""
 
-    return {
-        "headline": sentences[0] if sentences else "My evolving professional story",
-        "intro": intro,
-        "achievements": achievements or ["I am actively building evidence of growth through meaningful projects and learning outcomes."],
-        "aspirations": aspirations or ["I am defining the next phase of my path with clear goals and purpose."],
-        "idp": {
-            "specific": aspirations[0] if aspirations else "Develop toward a role where my strengths create social and professional impact.",
-            "measurable": "Track milestones every month: one project output, one relationship-building action, and one documented reflection.",
-            "abilities": "Strengthen communication, research, collaboration, and strategic decision making through practice and feedback.",
-            "relevant": "Align opportunities with values, lived experience, and long-term contribution.",
-            "tenable": risks[0] if risks else "If momentum drops, then use mentor check-ins and smaller weekly goals to regain traction.",
-            "support": " ".join(support) if support else "Build support through mentors, peers, and communities linked to your direction.",
-        },
-        "recommendations": recommendations[:4],
-        "uploads": uploads,
-        "createdAt": "",
-    }
+    extra_text_parts: list[str] = []
+    image_budget = MAX_IMAGE_DESCRIPTIONS
+    annotated: list[dict[str, Any]] = []
+
+    for upload in uploads:
+        if not isinstance(upload, dict):
+            continue
+        item = dict(upload)
+
+        text_excerpt = str(item.get("textExcerpt") or "").strip()
+        if text_excerpt:
+            extra_text_parts.append(text_excerpt[:MAX_TEXT_EXCERPT_CHARS])
+
+        data_url = item.get("previewDataUrl")
+        if data_url and image_budget > 0:
+            try:
+                description = describe_image(data_url, str(item.get("name") or "photo"))
+            except Exception as error:  # noqa: BLE001
+                print(f"[ai-vision] image description failed: {error}")
+                description = None
+            if description:
+                item["aiDescription"] = description
+                extra_text_parts.append(description)
+                image_budget -= 1
+
+        annotated.append(item)
+
+    return " ".join(extra_text_parts), annotated
 
 
-def _call_openai_compatible(
+def _chat_completion(
     *,
     base_url: str,
     api_key: str,
     model: str,
-    text: str,
-    recommendations: list[dict[str, Any]],
-    uploads: list[dict[str, Any]],
+    messages: list[dict[str, Any]],
+    json_mode: bool = True,
     timeout: int = 35,
-) -> dict[str, Any] | None:
-    """Call any OpenAI-compatible /chat/completions endpoint (OpenAI, Groq, etc.)."""
-
-    top_context = [
-        {
-            "title": rec.get("title"),
-            "snippet": rec.get("snippet"),
-            "matchedTerms": rec.get("matchedTerms"),
-        }
-        for rec in recommendations[:4]
-    ]
-
-    user_payload = {
-        "user_text": text,
-        "recommended_interview_context": top_context,
-        "uploads": uploads,
+) -> str | None:
+    body: dict[str, Any] = {
+        "model": model,
+        "temperature": 0.6,
+        "messages": messages,
     }
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
 
     response = requests.post(
         base_url,
@@ -186,101 +222,194 @@ def _call_openai_compatible(
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
-        json={
-            "model": model,
-            "temperature": 0.4,
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": json.dumps(user_payload)},
-            ],
-        },
+        json=body,
         timeout=timeout,
     )
     response.raise_for_status()
     payload = response.json()
     content = payload["choices"][0]["message"]["content"]
-    if not isinstance(content, str):
-        return None
+    return content if isinstance(content, str) else None
 
-    # Strip markdown fences if the model wraps its JSON.
+
+def _clean_json_content(content: str) -> Any:
     content = content.strip()
     if content.startswith("```"):
         content = re.sub(r"^```[a-zA-Z]*\n", "", content)
         content = re.sub(r"\n```$", "", content)
-
-    parsed = json.loads(content)
-    if not isinstance(parsed, dict):
-        return None
-
-    parsed["recommendations"] = recommendations[:4]
-    parsed["uploads"] = uploads
-    return parsed
+    return json.loads(content)
 
 
-def call_groq_about(text: str, recommendations: list[dict[str, Any]], uploads: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Free-tier AI provider (https://console.groq.com) - no credit card required."""
+# --- Provider configuration -------------------------------------------------
+# Groq is tried first because it's free with no credit card required.
 
+def _groq_config() -> tuple[str, str] | None:
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key:
         return None
-
-    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-    return _call_openai_compatible(
-        base_url="https://api.groq.com/openai/v1/chat/completions",
-        api_key=api_key,
-        model=model,
-        text=text,
-        recommendations=recommendations,
-        uploads=uploads,
-    )
+    return api_key, os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 
-def call_openai_about(text: str, recommendations: list[dict[str, Any]], uploads: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _openai_config() -> tuple[str, str] | None:
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key:
         return None
-
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-    return _call_openai_compatible(
-        base_url="https://api.openai.com/v1/chat/completions",
-        api_key=api_key,
-        model=model,
-        text=text,
-        recommendations=recommendations,
-        uploads=uploads,
-    )
+    return api_key, os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 
-# Providers are tried in order. Groq is first because it's free with no credit
-# card required, so it's the best default for anyone forking this project.
-PROVIDERS = (
-    ("groq", call_groq_about),
-    ("openai", call_openai_about),
+TEXT_PROVIDERS = (
+    ("groq", "https://api.groq.com/openai/v1/chat/completions", _groq_config),
+    ("openai", "https://api.openai.com/v1/chat/completions", _openai_config),
 )
+
+VISION_PROVIDERS = (
+    ("groq", "https://api.groq.com/openai/v1/chat/completions", _groq_config, "qwen/qwen3.6-27b"),
+    ("openai", "https://api.openai.com/v1/chat/completions", _openai_config, "gpt-4o-mini"),
+)
+
+
+def describe_image(data_url: str, filename: str) -> str | None:
+    for provider_name, base_url, config_fn, model in VISION_PROVIDERS:
+        config = config_fn()
+        if not config:
+            continue
+        api_key, _text_model = config
+        try:
+            content = _chat_completion(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                json_mode=False,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": IMAGE_DESCRIPTION_PROMPT},
+                            {"type": "image_url", "image_url": {"url": data_url}},
+                        ],
+                    }
+                ],
+            )
+        except Exception as error:  # noqa: BLE001
+            print(f"[ai-vision] {provider_name} failed on {filename}: {error}")
+            continue
+        if content:
+            return content.strip()
+    return None
+
+
+def call_text_provider(messages: list[dict[str, Any]]) -> tuple[str, Any] | None:
+    """Try each configured text provider in order, return (provider_name, parsed_json)."""
+    for provider_name, base_url, config_fn in TEXT_PROVIDERS:
+        config = config_fn()
+        if not config:
+            continue
+        api_key, model = config
+        try:
+            content = _chat_completion(base_url=base_url, api_key=api_key, model=model, messages=messages)
+            if not content:
+                continue
+            parsed = _clean_json_content(content)
+        except Exception as error:  # noqa: BLE001
+            print(f"[ai-synthesize] {provider_name} provider failed: {error}")
+            continue
+        return provider_name, parsed
+    return None
+
+
+def fallback_about_payload(text: str, recommendations: list[dict[str, Any]]) -> dict[str, Any]:
+    sentences = sentence_split(text)
+    threads_source = pick_sentences(text, r"want|hope|worry|afraid|wonder|dream|stuck|torn|next|maybe", limit=3)
+    headline = sentences[0][:90] if sentences else "You showed up here with something on your mind"
+
+    kindred = []
+    for rec in recommendations[:3]:
+        kindred.append({
+            "title": rec.get("title") or "A voice from the archive",
+            "why": "Something in what they lived through echoes a thread in what you just wrote.",
+            "quote": rec.get("snippet") or "",
+            "url": rec.get("url") or "#",
+        })
+
+    return {
+        "mirror_headline": headline,
+        "reflection": (
+            " ".join(sentences[:3])
+            if sentences
+            else "You haven't written much yet - but even a few honest lines are enough to start noticing a pattern."
+        ),
+        "threads": threads_source or [
+            "What part of this are you not saying out loud yet?",
+            "If nobody was watching, would you still choose this path?",
+        ],
+        "kindred_voices": kindred,
+        "provocation": "Keep writing - the more you put down, the more the pattern in your own path starts to show itself.",
+    }
 
 
 def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     text = str(payload.get("text") or "").strip()
     uploads = payload.get("uploads") or []
-    upload_names = [str(item.get("name") or "") for item in uploads if isinstance(item, dict)]
 
-    recommendations = build_recommendations(text, upload_names)
+    extra_text, annotated_uploads = gather_upload_context(uploads)
+    combined_text = (text + " " + extra_text).strip()
+    upload_names = [str(item.get("name") or "") for item in annotated_uploads if isinstance(item, dict)]
+
+    recommendations = build_recommendations(combined_text, upload_names)
+    recs_by_slug = {rec["slug"]: rec for rec in recommendations}
 
     about = None
     source = "fallback"
-    for provider_name, provider_fn in PROVIDERS:
-        try:
-            about = provider_fn(text, recommendations, uploads)
-        except Exception as error:  # noqa: BLE001 - never let a provider outage break the page
-            print(f"[ai-synthesize] {provider_name} provider failed: {error}")
-            about = None
-        if about:
+
+    context = [
+        {"slug": rec["slug"], "title": rec["title"], "snippet": rec["snippet"]}
+        for rec in recommendations[:5]
+    ]
+    upload_context = [
+        {"name": item.get("name"), "aiDescription": item.get("aiDescription"), "textExcerpt": (item.get("textExcerpt") or "")[:500]}
+        for item in annotated_uploads
+    ]
+    user_payload = {
+        "user_text": text,
+        "uploads": upload_context,
+        "interview_context": context,
+    }
+
+    result = call_text_provider(
+        [
+            {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps(user_payload)},
+        ]
+    )
+
+    if result:
+        provider_name, parsed = result
+        if isinstance(parsed, dict):
+            kindred_voices = []
+            for item in (parsed.get("resonances") or [])[:4]:
+                if not isinstance(item, dict):
+                    continue
+                rec = recs_by_slug.get(item.get("slug"))
+                if not rec:
+                    continue
+                kindred_voices.append({
+                    "title": rec["title"],
+                    "why": item.get("why") or "",
+                    "quote": rec["snippet"],
+                    "url": rec["url"],
+                })
+            about = {
+                "mirror_headline": parsed.get("mirror_headline") or "",
+                "reflection": parsed.get("reflection") or "",
+                "threads": parsed.get("threads") or [],
+                "kindred_voices": kindred_voices,
+                "provocation": parsed.get("provocation") or "",
+            }
             source = provider_name
-            break
 
     if not about:
-        about = fallback_about_payload(text, recommendations, uploads)
+        about = fallback_about_payload(text, recommendations)
+
+    about["uploads"] = annotated_uploads
 
     return {
         "source": source,
@@ -289,43 +418,91 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def fallback_question(excerpt_title: str, excerpt_text: str) -> str:
+    clipped = re.sub(r"\s+", " ", excerpt_text or "").strip()[:140]
+    if not clipped:
+        return f"What made {excerpt_title or 'this voice'} feel worth pausing on for you?"
+    return f'{excerpt_title or "One person"} once said something like: "{clipped}..." - does any part of that land close to home?'
+
+
+def ask_question(payload: dict[str, Any]) -> dict[str, Any]:
+    text = str(payload.get("text") or "").strip()
+    match = payload.get("match") or {}
+    excerpt_title = str(match.get("title") or "")
+    excerpt_text = str(match.get("fullText") or match.get("quote") or "")
+
+    user_payload = {
+        "user_text": text,
+        "excerpt_title": excerpt_title,
+        "excerpt_text": excerpt_text[:1200],
+    }
+
+    result = call_text_provider(
+        [
+            {"role": "system", "content": QUESTION_SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps(user_payload)},
+        ]
+    )
+
+    if result:
+        _provider_name, parsed = result
+        if isinstance(parsed, dict) and parsed.get("question"):
+            return {"question": str(parsed["question"]), "source": _provider_name}
+
+    return {"question": fallback_question(excerpt_title, excerpt_text), "source": "fallback"}
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
-    def do_POST(self) -> None:
-        if self.path.rstrip("/") != "/api/ai-synthesize":
-            self.send_error(404, "Not found")
-            return
-
+    def _read_json_body(self) -> dict[str, Any] | None:
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             content_length = 0
         raw = self.rfile.read(content_length) if content_length > 0 else b"{}"
-
         try:
             payload = json.loads(raw.decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("Payload must be object")
         except Exception:
-            self.send_error(400, "Invalid JSON")
-            return
+            return None
+        return payload
 
-        try:
-            result = synthesize(payload)
-        except Exception as error:
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(error)}).encode("utf-8"))
-            return
-
-        self.send_response(200)
+    def _send_json(self, obj: dict[str, Any], status: int = 200) -> None:
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
-        self.wfile.write(json.dumps(result).encode("utf-8"))
+        self.wfile.write(json.dumps(obj).encode("utf-8"))
+
+    def do_POST(self) -> None:
+        route = self.path.rstrip("/")
+
+        if route == "/api/ai-synthesize":
+            payload = self._read_json_body()
+            if payload is None:
+                self.send_error(400, "Invalid JSON")
+                return
+            try:
+                self._send_json(synthesize(payload))
+            except Exception as error:
+                self._send_json({"error": str(error)}, status=500)
+            return
+
+        if route == "/api/ai-question":
+            payload = self._read_json_body()
+            if payload is None:
+                self.send_error(400, "Invalid JSON")
+                return
+            try:
+                self._send_json(ask_question(payload))
+            except Exception as error:
+                self._send_json({"error": str(error)}, status=500)
+            return
+
+        self.send_error(404, "Not found")
 
 
 class ReusableThreadingTCPServer(socketserver.ThreadingTCPServer):
@@ -341,7 +518,7 @@ def main() -> None:
         elif os.environ.get("OPENAI_API_KEY", "").strip():
             active_provider = "OpenAI"
         print(f"Serving TRaCE Searchable at http://localhost:{PORT}/site/")
-        print(f"AI endpoint available at /api/ai-synthesize (provider: {active_provider})")
+        print(f"AI endpoints available at /api/ai-synthesize and /api/ai-question (provider: {active_provider})")
         httpd.serve_forever()
 
 

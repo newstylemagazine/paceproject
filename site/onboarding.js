@@ -13,6 +13,10 @@ const STOP_WORDS = new Set([
   "any", "its", "it's", "we", "they", "them", "his", "her", "she", "him", "who", "what", "where", "when",
 ]);
 
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
+const MAX_TEXT_CHARS = 20000;
+const TEXT_LIKE_EXTENSIONS = /\.(txt|md|markdown)$/i;
+
 const storyInput = document.getElementById("storyInput");
 const dropZone = document.getElementById("dropZone");
 const uploadInput = document.getElementById("uploadInput");
@@ -25,6 +29,7 @@ const continuePrompt = document.getElementById("continuePrompt");
 const quotePopup = document.getElementById("quotePopup");
 const quotePopupTitle = document.getElementById("quotePopupTitle");
 const quotePopupBody = document.getElementById("quotePopupBody");
+const quotePopupQuestion = document.getElementById("quotePopupQuestion");
 const quotePopupLink = document.getElementById("quotePopupLink");
 const quotePopupClose = document.getElementById("quotePopupClose");
 
@@ -99,7 +104,9 @@ function scoreText(haystack, terms) {
 }
 
 function buildMatches(text, uploads) {
-  const uploadTerms = uploads.map((item) => item.name.replace(/\.[^.]+$/, "")).join(" ");
+  const uploadTerms = uploads
+    .map((item) => `${item.name.replace(/\.[^.]+$/, "")} ${item.textExcerpt || ""}`)
+    .join(" ");
   const terms = extractTerms(`${text} ${uploadTerms}`);
   if (!terms.length) {
     return [];
@@ -149,33 +156,67 @@ function renderUploads() {
   for (const item of state.uploads) {
     const chip = document.createElement("article");
     chip.className = "upload-chip";
+    const thumb = item.previewDataUrl
+      ? `<img src="${item.previewDataUrl}" alt="" />`
+      : `<div class="file-icon">${item.textExcerpt ? "TXT" : "DOC"}</div>`;
     chip.innerHTML = `
-      <div class="file-icon">DOC</div>
+      ${thumb}
       <div class="file-meta">
         <p>${item.name}</p>
         <small>${Number.isFinite(item.size) ? `${(item.size / 1024).toFixed(1)} KB` : "Unknown size"}</small>
       </div>
-      <button type="button" data-file-id="${item.id}">Remove</button>
+      <button type="button" data-file-id="${item.id}" aria-label="Remove ${item.name}">Remove</button>
     `;
     uploadTray.appendChild(chip);
   }
 }
 
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
 async function toUploadRecord(file) {
-  return {
+  const record = {
     id: `${file.name}-${file.lastModified}-${Math.random().toString(16).slice(2, 8)}`,
     name: file.name,
     size: file.size,
     type: file.type || "application/octet-stream",
   };
+
+  try {
+    if (file.type.startsWith("image/") && file.size <= MAX_IMAGE_BYTES) {
+      record.previewDataUrl = await readFileAsDataURL(file);
+    } else if (
+      (file.type.startsWith("text/") || TEXT_LIKE_EXTENSIONS.test(file.name)) &&
+      file.size <= MAX_IMAGE_BYTES
+    ) {
+      const raw = await readFileAsText(file);
+      record.textExcerpt = raw.slice(0, MAX_TEXT_CHARS);
+    }
+  } catch (error) {
+    console.error(`Could not read ${file.name}:`, error);
+  }
+
+  return record;
 }
 
 async function addFiles(fileList) {
-  const records = [];
-  for (const file of fileList) {
-    records.push(await toUploadRecord(file));
-  }
-  state.uploads = [...state.uploads, ...records].slice(0, 24);
+  const records = await Promise.all(Array.from(fileList).map(toUploadRecord));
+  state.uploads = [...state.uploads, ...records].slice(0, 12);
   renderUploads();
   safeSetStorage(PROFILE_STORAGE_KEY, state);
 }
@@ -280,7 +321,6 @@ function renderSpiderweb(matches) {
     const x = points[index].x;
     const y = points[index].y;
 
-    // Hard guarantee: never render nodes that would appear under the textbox.
     if (intersectsTextbox({ x, y })) {
       return;
     }
@@ -301,10 +341,10 @@ function renderSpiderweb(matches) {
   });
 
   intakeStage.classList.add("is-active");
-  continuePrompt.textContent = "Continue writing: respond to these voices, borrow language that resonates, and refine your direction.";
+  continuePrompt.textContent = "Click a voice to hear a question grown from their story, or keep writing in response to what resonates.";
 }
 
-function openQuotePopup(match) {
+async function openQuotePopup(match) {
   if (!quotePopup || !quotePopupTitle || !quotePopupBody || !quotePopupLink) {
     return;
   }
@@ -312,8 +352,28 @@ function openQuotePopup(match) {
   quotePopupTitle.textContent = match.title || "Interview voice";
   quotePopupBody.textContent = match.fullText || match.quote || "No additional text available.";
   quotePopupLink.href = match.url || "#";
+  quotePopupQuestion.textContent = "Thinking of a question worth asking...";
+  quotePopupQuestion.classList.add("is-loading");
   quotePopup.classList.add("is-open");
   quotePopup.setAttribute("aria-hidden", "false");
+
+  try {
+    const response = await fetch("/api/ai-question", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: state.text, match }),
+    });
+    if (!response.ok) {
+      throw new Error(`Server responded ${response.status}`);
+    }
+    const result = await response.json();
+    quotePopupQuestion.textContent = result.question || "";
+  } catch (error) {
+    console.error("Could not fetch a question:", error);
+    quotePopupQuestion.textContent = "";
+  } finally {
+    quotePopupQuestion.classList.remove("is-loading");
+  }
 }
 
 function closeQuotePopup() {
@@ -438,7 +498,7 @@ function wireEvents() {
   letsGoButton.addEventListener("click", () => {
     const text = storyInput.value.trim();
     if (!text) {
-      continuePrompt.textContent = "Write a short paragraph first, then press Go.";
+      continuePrompt.textContent = "Write a few honest lines first, then press Go.";
       storyInput.focus();
       return;
     }

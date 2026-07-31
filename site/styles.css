@@ -1,12 +1,12 @@
 :root {
-  --bg: #ffffff;
-  --text: #111111;
-  --brand: #ED1B2F;
-  --brand-dark: #b01020;
-  --card: #ffffff;
-  --stroke: #cccccc;
-  --muted: #555555;
-  --mark-bg: #ffd0d4;
+  --bg: #f6f1e6;
+  --text: #2c2620;
+  --brand: #b5603c;
+  --brand-dark: #8f4a2d;
+  --card: #fffdf7;
+  --stroke: #ddd0ba;
+  --muted: #6e6354;
+  --mark-bg: #f0ddb8;
 }
 
 * {
@@ -286,7 +286,7 @@ h1 {
 
 .inline-chip {
   display: inline-block;
-  background: #f4f4f4;
+  background: #efe5d1;
   border: 1px solid var(--stroke);
   border-radius: 3px;
   padding: 0.1rem 0.42rem;
@@ -395,7 +395,7 @@ button:hover {
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
   color: var(--muted);
-  background: #fafafa;
+  background: #faf5e9;
 }
 
 .results {
@@ -465,7 +465,7 @@ button:hover {
 
 .tag-chip {
   font-size: 0.75rem;
-  background: #f4f4f4;
+  background: #efe5d1;
   border: 1px solid var(--stroke);
   border-radius: 2px;
   padding: 0.1rem 0.4rem;
@@ -478,7 +478,7 @@ button:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #e8ddc7;
   padding-top: 0.65rem;
 }
 
@@ -519,7 +519,7 @@ button:hover {
 
 mark {
   background: var(--mark-bg);
-  color: #7a0010;
+  color: #5c2e18;
   padding: 0 0.1rem;
   border-radius: 1px;
 }
@@ -567,7 +567,7 @@ mark {
 
 /* IDP Sidebar Styles */
 .idp-sidebar {
-  background: linear-gradient(135deg, #fff5f6 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #f5ead9 0%, #ffffff 100%);
   border: 2px solid var(--brand);
   border-radius: 12px;
   padding: 1.5rem;
@@ -614,7 +614,7 @@ mark {
 }
 
 .idp-close-sidebar:hover {
-  background: #f4f4f4;
+  background: #efe5d1;
   color: var(--text);
 }
 
@@ -712,7 +712,7 @@ mark {
 }
 
 .about-header-button:hover {
-  background: #fff5f6;
+  background: #f5ead9;
 }
 
 .search-index-button {
@@ -731,7 +731,7 @@ mark {
 }
 
 .search-index-button:hover {
-  background: #fff5f6;
+  background: #f5ead9;
 }
 
 .hero .about-header-button {
@@ -817,7 +817,7 @@ mark {
 
 .story-input:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(237, 27, 47, 0.12);
+  box-shadow: 0 0 0 2px rgba(181, 96, 60, 0.16);
 }
 
 .go-attached {
@@ -862,7 +862,7 @@ mark {
 
 .drop-zone.is-dragover {
   border-color: var(--brand);
-  background: #fff5f6;
+  background: #f5ead9;
   color: var(--brand-dark);
 }
 
@@ -1007,7 +1007,7 @@ mark {
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--muted);
-  background: #fafafa;
+  background: #faf5e9;
 }
 
 #uploadInput {
@@ -1115,7 +1115,7 @@ mark {
   border: 1px solid var(--stroke);
   border-radius: 2px;
   padding: 0.1rem 0.35rem;
-  background: #f4f4f4;
+  background: #efe5d1;
 }
 
 #recommendationList .match-actions {
@@ -1166,7 +1166,7 @@ mark {
   align-items: flex-start;
   gap: 0.65rem;
   border-left: 2px solid var(--brand);
-  background: #fafafa;
+  background: #faf5e9;
   padding: 0.55rem 0.7rem;
   font-size: 0.92rem;
   line-height: 1.5;
@@ -1352,7 +1352,7 @@ mark {
 }
 
 .source-badge.source-fallback {
-  background: #eee;
+  background: #e8ddc7;
   color: var(--muted);
   border: 1px solid var(--stroke);
 }
@@ -1408,7 +1408,7 @@ mark {
 
 .skeleton-line,
 .skeleton-block {
-  background: linear-gradient(90deg, #eee, #f6f6f6, #eee);
+  background: linear-gradient(90deg, #e8ddc7, #f2ead9, #e8ddc7);
   border-radius: 3px;
   animation: skeleton-pulse 1.3s ease-in-out infinite;
   list-style: none;
@@ -1439,4 +1439,109 @@ mark {
   .skeleton-block {
     animation: none;
   }
+}
+
+/* ── Earthy redesign: softer shapes, drop-zone, question bubble ─────────── */
+
+.result-card,
+.rec-card,
+.input-shell,
+.story-input,
+.drop-zone,
+.upload-chip,
+.upload-item,
+.quote-popup-card,
+.idp-line,
+#query,
+select,
+button,
+.theme-button,
+.tag-chip,
+.score-badge,
+.inline-chip,
+.about-card {
+  border-radius: 10px;
+}
+
+.quote-node {
+  border-radius: 12px;
+}
+
+.quote-popup-close {
+  border-radius: 999px;
+}
+
+.upload-chip img,
+.file-icon {
+  border-radius: 8px;
+}
+
+.drop-zone-link {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.quote-popup-question {
+  margin: 0 0.95rem 0.5rem;
+  padding: 0.75rem 0.9rem;
+  border-left: 3px solid var(--brand);
+  background: var(--mark-bg);
+  border-radius: 0 10px 10px 0;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.quote-popup-question:empty {
+  display: none;
+}
+
+.quote-popup-question.is-loading {
+  color: var(--muted);
+  font-style: normal;
+}
+
+/* ── About page: reflective schema ───────────────────────────────────────── */
+
+.rec-why {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.rec-quote {
+  margin: 0.5rem 0;
+  line-height: 1.55;
+  font-family: "Computer Modern Serif", Georgia, serif;
+}
+
+.upload-ai-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.provocation-card {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.provocation-text {
+  margin: 0;
+  font-family: "Computer Modern Serif", Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.05rem, 2.4vw, 1.4rem);
+  line-height: 1.5;
+  color: #fff8ee;
+}
+
+.provocation-text:empty {
+  display: none;
+}
+
+.provocation-card:has(.provocation-text:empty) {
+  display: none;
 }
