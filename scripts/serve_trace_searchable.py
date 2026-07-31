@@ -28,6 +28,13 @@ STOP_WORDS = {
     "any", "its", "we", "they", "them", "his", "her", "she", "him", "who", "what", "where", "when",
 }
 
+SYSTEM_PROMPT = (
+    "You generate concise About Me profile JSON for career reflection. "
+    "Return only valid JSON with keys: headline, intro, achievements, aspirations, idp, recommendations, uploads. "
+    "achievements and aspirations must be arrays of short strings (2-4 items each). "
+    "idp must have keys: specific, measurable, abilities, relevant, tenable, support, each a short sentence."
+)
+
 
 def normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9\s]", " ", (text or "").lower())
@@ -146,12 +153,18 @@ def fallback_about_payload(text: str, recommendations: list[dict[str, Any]], upl
     }
 
 
-def call_llm_about(text: str, recommendations: list[dict[str, Any]], uploads: list[dict[str, Any]]) -> dict[str, Any] | None:
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        return None
+def _call_openai_compatible(
+    *,
+    base_url: str,
+    api_key: str,
+    model: str,
+    text: str,
+    recommendations: list[dict[str, Any]],
+    uploads: list[dict[str, Any]],
+    timeout: int = 35,
+) -> dict[str, Any] | None:
+    """Call any OpenAI-compatible /chat/completions endpoint (OpenAI, Groq, etc.)."""
 
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     top_context = [
         {
             "title": rec.get("title"),
@@ -161,12 +174,6 @@ def call_llm_about(text: str, recommendations: list[dict[str, Any]], uploads: li
         for rec in recommendations[:4]
     ]
 
-    system_prompt = (
-        "You generate concise About Me profile JSON for career reflection. "
-        "Return only valid JSON with keys: headline, intro, achievements, aspirations, idp, recommendations, uploads. "
-        "idp must have keys: specific, measurable, abilities, relevant, tenable, support."
-    )
-
     user_payload = {
         "user_text": text,
         "recommended_interview_context": top_context,
@@ -174,20 +181,21 @@ def call_llm_about(text: str, recommendations: list[dict[str, Any]], uploads: li
     }
 
     response = requests.post(
-        "https://api.openai.com/v1/chat/completions",
+        base_url,
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
         json={
             "model": model,
-            "temperature": 0.3,
+            "temperature": 0.4,
+            "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": json.dumps(user_payload)},
             ],
         },
-        timeout=35,
+        timeout=timeout,
     )
     response.raise_for_status()
     payload = response.json()
@@ -195,7 +203,7 @@ def call_llm_about(text: str, recommendations: list[dict[str, Any]], uploads: li
     if not isinstance(content, str):
         return None
 
-    # Strip markdown fences if present.
+    # Strip markdown fences if the model wraps its JSON.
     content = content.strip()
     if content.startswith("```"):
         content = re.sub(r"^```[a-zA-Z]*\n", "", content)
@@ -210,6 +218,48 @@ def call_llm_about(text: str, recommendations: list[dict[str, Any]], uploads: li
     return parsed
 
 
+def call_groq_about(text: str, recommendations: list[dict[str, Any]], uploads: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Free-tier AI provider (https://console.groq.com) - no credit card required."""
+
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+    return _call_openai_compatible(
+        base_url="https://api.groq.com/openai/v1/chat/completions",
+        api_key=api_key,
+        model=model,
+        text=text,
+        recommendations=recommendations,
+        uploads=uploads,
+    )
+
+
+def call_openai_about(text: str, recommendations: list[dict[str, Any]], uploads: list[dict[str, Any]]) -> dict[str, Any] | None:
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    return _call_openai_compatible(
+        base_url="https://api.openai.com/v1/chat/completions",
+        api_key=api_key,
+        model=model,
+        text=text,
+        recommendations=recommendations,
+        uploads=uploads,
+    )
+
+
+# Providers are tried in order. Groq is first because it's free with no credit
+# card required, so it's the best default for anyone forking this project.
+PROVIDERS = (
+    ("groq", call_groq_about),
+    ("openai", call_openai_about),
+)
+
+
 def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     text = str(payload.get("text") or "").strip()
     uploads = payload.get("uploads") or []
@@ -219,12 +269,15 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
 
     about = None
     source = "fallback"
-    try:
-        about = call_llm_about(text, recommendations, uploads)
+    for provider_name, provider_fn in PROVIDERS:
+        try:
+            about = provider_fn(text, recommendations, uploads)
+        except Exception as error:  # noqa: BLE001 - never let a provider outage break the page
+            print(f"[ai-synthesize] {provider_name} provider failed: {error}")
+            about = None
         if about:
-            source = "ai"
-    except Exception:
-        about = None
+            source = provider_name
+            break
 
     if not about:
         about = fallback_about_payload(text, recommendations, uploads)
@@ -270,6 +323,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps(result).encode("utf-8"))
 
@@ -281,8 +335,13 @@ class ReusableThreadingTCPServer(socketserver.ThreadingTCPServer):
 
 def main() -> None:
     with ReusableThreadingTCPServer(("", PORT), Handler) as httpd:
+        active_provider = "fallback (no API key set)"
+        if os.environ.get("GROQ_API_KEY", "").strip():
+            active_provider = "Groq"
+        elif os.environ.get("OPENAI_API_KEY", "").strip():
+            active_provider = "OpenAI"
         print(f"Serving TRaCE Searchable at http://localhost:{PORT}/site/")
-        print("AI endpoint available at /api/ai-synthesize")
+        print(f"AI endpoint available at /api/ai-synthesize (provider: {active_provider})")
         httpd.serve_forever()
 
 
