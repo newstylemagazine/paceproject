@@ -1,53 +1,57 @@
-const ABOUT_STORAGE_KEY = "trace_about_me_v2";
+const PROFILE_STORAGE_KEY = "trace_profile_intake_v3";
+const ABOUT_STORAGE_KEY = "trace_about_me_v3";
 
-function readPayload() {
-  const raw = localStorage.getItem(ABOUT_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
+const PROVIDER_LABELS = {
+  groq: "Groq AI",
+  openai: "OpenAI",
+  fallback: "Local fallback",
+};
 
+function readStorage(key) {
   try {
-    return JSON.parse(raw);
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function fillList(container, items, fallback) {
-  container.innerHTML = "";
-  const source = items && items.length ? items : [fallback];
-  for (const item of source) {
-    const li = document.createElement("li");
-    li.textContent = item;
-    container.appendChild(li);
+function safeSetStorage(key, payload) {
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch (error) {
+    console.error("Storage write failed:", error);
   }
 }
 
-function renderIDPLines(container, idp) {
-  container.innerHTML = "";
-
-  const lines = [
-    ["Specific", idp?.specific],
-    ["Measurable", idp?.measurable],
-    ["Abilities", idp?.abilities],
-    ["Relevant", idp?.relevant],
-    ["Tenable", idp?.tenable],
-    ["Support", idp?.support],
-  ];
-
-  for (const [label, value] of lines) {
-    const line = document.createElement("div");
-    line.className = "idp-line";
-    line.innerHTML = `<strong>${label}:</strong> ${value || "To be expanded in your next revision."}`;
-    container.appendChild(line);
+// Small non-cryptographic hash so we can tell whether the cached reflection
+// still matches the story (and uploads) the user last left on the homepage.
+function hashInput(text, uploads) {
+  const source = `${text}::${(uploads || []).map((u) => u.name).join("|")}`;
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash * 31 + source.charCodeAt(i)) | 0;
   }
+  return String(hash);
+}
+
+function fillThreads(container, threads) {
+  container.innerHTML = "";
+  const source = threads && threads.length ? threads : ["Write a little more, and a thread will start to show itself."];
+  source.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    li.className = "reveal-item";
+    li.style.animationDelay = `${index * 90}ms`;
+    container.appendChild(li);
+  });
 }
 
 function renderUploads(container, uploads) {
   container.innerHTML = "";
 
   if (!uploads || !uploads.length) {
-    container.innerHTML = '<p class="empty">No uploaded artifacts were included yet.</p>';
+    container.innerHTML = '<p class="empty">Nothing shared yet - a photo, a document, anything lying around helps fill this in.</p>';
     return;
   }
 
@@ -59,75 +63,171 @@ function renderUploads(container, uploads) {
       ? `<img src="${upload.previewDataUrl}" alt="Preview of ${upload.name}" />`
       : '<div class="doc">Document</div>';
 
-    card.innerHTML = `${preview}<p>${upload.name}</p>`;
+    const description = upload.aiDescription ? `<p class="upload-ai-note">${upload.aiDescription}</p>` : "";
+    card.innerHTML = `${preview}<p>${upload.name}</p>${description}`;
     container.appendChild(card);
   }
 }
 
-function renderRecommendations(container, recs) {
+function renderKindredVoices(container, voices) {
   container.innerHTML = "";
 
-  if (!recs || !recs.length) {
-    container.innerHTML = '<p class="empty">No interview matches were generated. Add more detail on the home page to get recommendations.</p>';
+  if (!voices || !voices.length) {
+    container.innerHTML = '<p class="empty">No kindred voices surfaced yet. Write a bit more on the home page and come back.</p>';
     return;
   }
 
-  for (const rec of recs) {
+  voices.forEach((voice, index) => {
     const card = document.createElement("article");
-    card.className = "rec-card";
+    card.className = "rec-card reveal-item";
+    card.style.animationDelay = `${index * 90}ms`;
 
     card.innerHTML = `
-      <h3>${rec.title || "Interview"}</h3>
-      <p>${rec.snippet || "Relevant transcript excerpt"}</p>
+      <h3>${voice.title || "Interview"}</h3>
+      ${voice.why ? `<p class="rec-why">${voice.why}</p>` : ""}
+      ${voice.quote ? `<p class="rec-quote">"${voice.quote}"</p>` : ""}
       <div class="actions">
-        <a href="${rec.transcriptUrl || "index.html"}">Read transcript</a>
-        <a href="${rec.url || "#"}" target="_blank" rel="noreferrer">Original source</a>
+        <a href="${voice.url || "#"}" target="_blank" rel="noreferrer">Read their full interview</a>
       </div>
     `;
 
     container.appendChild(card);
+  });
+}
+
+function renderBadge(badgeEl, source) {
+  if (!badgeEl) return;
+  const label = PROVIDER_LABELS[source] || "Local fallback";
+  badgeEl.textContent = source === "fallback" ? label : `${label} ✨`;
+  badgeEl.className = `source-badge source-${source === "fallback" ? "fallback" : "ai"}`;
+}
+
+function els() {
+  return {
+    headline: document.getElementById("headline"),
+    intro: document.getElementById("intro"),
+    badge: document.getElementById("sourceBadge"),
+    regenerateButton: document.getElementById("regenerateButton"),
+    statusLine: document.getElementById("statusLine"),
+    threadList: document.getElementById("threadList"),
+    uploadGallery: document.getElementById("uploadGallery"),
+    recommendationList: document.getElementById("recommendationList"),
+    provocation: document.getElementById("provocation"),
+    page: document.querySelector(".about-page"),
+  };
+}
+
+function renderEmptyState() {
+  const e = els();
+  e.headline.textContent = "You haven't written anything yet";
+  e.intro.textContent = "Go write a few honest lines on the home page - or drop in a document or photo - then come back here.";
+  if (e.badge) e.badge.textContent = "";
+  if (e.regenerateButton) e.regenerateButton.hidden = true;
+  if (e.statusLine) e.statusLine.textContent = "";
+  fillThreads(e.threadList, []);
+  renderUploads(e.uploadGallery, []);
+  renderKindredVoices(e.recommendationList, []);
+  e.provocation.textContent = "";
+}
+
+function renderLoadingState() {
+  const e = els();
+  e.page.classList.add("is-loading");
+  e.headline.textContent = "Working through what you wrote…";
+  e.intro.textContent = "Reading your story, looking at what you shared, and finding related interviews.";
+  if (e.statusLine) e.statusLine.textContent = "This usually takes a couple of seconds.";
+  if (e.regenerateButton) e.regenerateButton.hidden = true;
+  e.threadList.innerHTML = '<li class="skeleton-line"></li><li class="skeleton-line"></li>';
+  e.recommendationList.innerHTML = '<div class="skeleton-block"></div>';
+  e.provocation.textContent = "";
+}
+
+function renderErrorState(message) {
+  const e = els();
+  e.page.classList.remove("is-loading");
+  e.headline.textContent = "Couldn't put this together";
+  e.intro.textContent = message;
+  if (e.statusLine) e.statusLine.textContent = "";
+  if (e.regenerateButton) e.regenerateButton.hidden = false;
+}
+
+function renderAbout(payload, { fromCache } = {}) {
+  const e = els();
+  e.page.classList.remove("is-loading");
+  const about = payload.about || {};
+
+  e.headline.textContent = about.mirror_headline || "Your reflection";
+  e.intro.textContent = about.reflection || "A reflection woven from your story and the archive.";
+
+  renderBadge(e.badge, payload.source || "fallback");
+  if (e.regenerateButton) e.regenerateButton.hidden = false;
+  if (e.statusLine) {
+    e.statusLine.textContent = fromCache
+      ? "Showing the last version generated. Write more and regenerate whenever it's ready."
+      : "Freshly generated from what you just wrote and shared.";
+  }
+
+  fillThreads(e.threadList, about.threads);
+  renderUploads(e.uploadGallery, about.uploads || []);
+  renderKindredVoices(e.recommendationList, about.kindred_voices || []);
+  e.provocation.textContent = about.provocation || "";
+}
+
+async function requestSynthesis(profile) {
+  const response = await fetch("/api/ai-synthesize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: profile.text, uploads: profile.uploads || [] }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Server responded with ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function generate(profile, hash) {
+  renderLoadingState();
+
+  try {
+    const result = await requestSynthesis(profile);
+    safeSetStorage(ABOUT_STORAGE_KEY, { hash, ...result, createdAt: new Date().toISOString() });
+    renderAbout(result, { fromCache: false });
+  } catch (error) {
+    console.error("Reflection synthesis failed:", error);
+    renderErrorState(
+      "The AI synthesis endpoint isn't reachable. Make sure the local server is running " +
+        "(python scripts/start_trace_site.py) and try again."
+    );
   }
 }
 
 function initialize() {
-  const payload = readPayload();
+  const profile = readStorage(PROFILE_STORAGE_KEY);
+  const text = String(profile?.text || "").trim();
 
-  const headline = document.getElementById("headline");
-  const intro = document.getElementById("intro");
-  const achievementList = document.getElementById("achievementList");
-  const aspirationList = document.getElementById("aspirationList");
-  const idpLines = document.getElementById("idpLines");
-  const uploadGallery = document.getElementById("uploadGallery");
-  const recommendationList = document.getElementById("recommendationList");
-
-  if (!payload) {
-    headline.textContent = "Your About Me is waiting";
-    intro.textContent = "Write your narrative on the homepage, then synthesize it to generate this page.";
-    fillList(achievementList, [], "Add your first achievement on the home page.");
-    fillList(aspirationList, [], "Add a future aspiration on the home page.");
-    renderIDPLines(idpLines, {});
-    renderUploads(uploadGallery, []);
-    renderRecommendations(recommendationList, []);
+  if (!profile || !text) {
+    renderEmptyState();
     return;
   }
 
-  headline.textContent = payload.headline || "My About Me";
-  intro.textContent = payload.intro || "A reflective profile generated from your narrative.";
+  const hash = hashInput(text, profile.uploads);
+  const cached = readStorage(ABOUT_STORAGE_KEY);
 
-  fillList(
-    achievementList,
-    payload.achievements,
-    "Continue adding concrete outcomes to strengthen this section."
-  );
-  fillList(
-    aspirationList,
-    payload.aspirations,
-    "Continue adding future-focused goals to strengthen this section."
-  );
+  const regenerateButton = document.getElementById("regenerateButton");
+  if (regenerateButton) {
+    regenerateButton.addEventListener("click", () => {
+      generate(profile, hash);
+    });
+  }
 
-  renderIDPLines(idpLines, payload.idp || {});
-  renderUploads(uploadGallery, payload.uploads || []);
-  renderRecommendations(recommendationList, payload.recommendations || []);
+  if (cached && cached.hash === hash && cached.about) {
+    renderAbout(cached, { fromCache: true });
+    return;
+  }
+
+  generate(profile, hash);
 }
 
 initialize();

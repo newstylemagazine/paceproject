@@ -4,25 +4,42 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TRaCE Searchable</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="fonts.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="page">
       <header class="hero">
-        <a href="search.html" class="search-index-button">Browse Transcript Index</a>
-        <p class="eyebrow">TRaCE Corpus Explorer</p>
-        <h1>TRaCE Searchable</h1>
-        <p class="subtitle">Write, drop files, and explore interview voices that respond to your story.</p>
-        <a href="about-me.html" class="about-header-button">About Me</a>
+        <a href="search.html" class="search-index-button">Browse the archive</a>
+        <p class="eyebrow">A quiet place to think out loud</p>
+        <h1>Write. Share what's lying around. See who's been here before you.</h1>
+        <p class="subtitle">
+          Type whatever is actually on your mind - or drop in an essay, a photo of your desk,
+          whatever's around. Real people who once stood where you're standing will answer back.
+        </p>
+        <a href="about-me.html" class="about-header-button">Your reflection</a>
       </header>
 
       <section class="intake-panel" aria-label="Story input">
         <div id="intakeStage" class="intake-stage">
           <div class="input-shell">
-            <textarea id="storyInput" class="story-input" rows="8" placeholder="Write here... what have you achieved, and where do you want to go?"></textarea>
+            <textarea id="storyInput" class="story-input" rows="8" placeholder="Start anywhere. 'I keep thinking about taking time off...' 'I'm not sure this job is still me...' whatever's true right now."></textarea>
+            <div
+              id="dropZone"
+              class="drop-zone"
+              tabindex="0"
+              role="button"
+              aria-label="Attach a file, essay, or photo"
+            >
+              <span>Drop a file here, or <span class="drop-zone-link">click to attach</span> - an essay, a photo, whatever feels relevant.</span>
+              <input id="uploadInput" type="file" multiple hidden accept="image/*,.txt,.md,.pdf,.doc,.docx" />
+            </div>
+            <div id="uploadTray" class="upload-tray" aria-live="polite"></div>
             <div class="go-row">
-              <p class="go-helper">Okay, let's say I type, "I want to take time off," and I see relevant results.</p>
+              <p class="go-helper">Write a paragraph, then press Go and see who answers.</p>
               <button id="letsGoButton" type="button" class="go-attached">Go</button>
             </div>
           </div>
@@ -34,7 +51,7 @@
         </div>
 
         <p id="continuePrompt" class="continue-prompt">
-          Press Go to surface interview voices, then keep writing in response to what resonates.
+          Press Go to see who else has stood here, then keep writing in response to what resonates.
         </p>
       </section>
 
@@ -45,8 +62,9 @@
             <button id="quotePopupClose" type="button" class="quote-popup-close" aria-label="Close">×</button>
           </div>
           <div id="quotePopupBody" class="quote-popup-body"></div>
+          <div id="quotePopupQuestion" class="quote-popup-question"></div>
           <div class="quote-popup-actions">
-            <a id="quotePopupLink" class="transcript-link" target="_blank" rel="noreferrer">Open interview in new tab</a>
+            <a id="quotePopupLink" class="transcript-link" target="_blank" rel="noreferrer">Read the full interview</a>
           </div>
         </div>
       </div>

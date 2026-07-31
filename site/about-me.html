@@ -3,37 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>About Me | TRaCE Searchable</title>
+    <title>Your reflection | TRaCE Searchable</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="fonts.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="page about-page">
       <header class="hero">
-        <p class="eyebrow">Generated Profile</p>
-        <h1 id="headline">My About Me</h1>
+        <p class="eyebrow">A reflection, not a resume</p>
+        <div class="about-headline-row">
+          <h1 id="headline">Your reflection</h1>
+          <span id="sourceBadge" class="source-badge"></span>
+        </div>
         <p id="intro" class="subtitle"></p>
+        <p id="statusLine" class="status-line"></p>
         <div class="about-actions">
-          <a href="index.html" class="transcript-link">Edit narrative</a>
-          <a href="search.html" class="transcript-link">Browse all interviews</a>
-          <a href="idp.html" class="transcript-link">Open IDP worksheet</a>
+          <a href="index.html" class="transcript-link">Keep writing</a>
+          <a href="search.html" class="transcript-link">Browse the archive</a>
+          <a href="idp.html" class="transcript-link">Open the worksheet</a>
+          <button id="regenerateButton" type="button" class="transcript-link regenerate-button" hidden>Regenerate</button>
         </div>
       </header>
 
       <section class="about-grid">
-        <article class="result-card">
-          <h2>Achievements</h2>
-          <ul id="achievementList"></ul>
-        </article>
-
-        <article class="result-card">
-          <h2>Aspirations</h2>
-          <ul id="aspirationList"></ul>
-        </article>
-
         <article class="result-card about-span-all">
-          <h2>IDP synthesis</h2>
-          <div class="idp-lines" id="idpLines"></div>
+          <h2>Threads worth pulling on</h2>
+          <ul id="threadList"></ul>
         </article>
 
         <article class="result-card about-span-all">
@@ -42,8 +40,13 @@
         </article>
 
         <article class="result-card about-span-all">
-          <h2>Interview voices aligned to your path</h2>
+          <h2>Voices who've stood near where you're standing</h2>
           <div id="recommendationList" class="recommendation-list"></div>
+        </article>
+
+        <article class="result-card about-span-all provocation-card">
+          <p class="provocation-label">One more thing</p>
+          <p id="provocation" class="provocation-text"></p>
         </article>
       </section>
     </main>

@@ -24,17 +24,20 @@ def load_env_file(env_path: Path) -> None:
 
 
 def print_start_message(root: Path) -> None:
-    has_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
+    has_groq_key = bool(os.environ.get("GROQ_API_KEY", "").strip())
+    has_openai_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
     port = os.environ.get("PORT", "8000")
 
     print("\nTRaCE Searchable startup")
     print("------------------------")
     print(f"Project folder: {root}")
     print(f"Site URL: http://localhost:{port}/site/")
-    if has_key:
-        print("AI mode: active (shared for all visitors)")
+    if has_groq_key:
+        print("AI mode: active via Groq (free, shared for all visitors)")
+    elif has_openai_key:
+        print("AI mode: active via OpenAI (shared for all visitors)")
     else:
-        print("AI mode: fallback (set OPENAI_API_KEY in .env to enable full AI)")
+        print("AI mode: fallback (set GROQ_API_KEY in .env for free AI - see README)")
     print("")
 
 

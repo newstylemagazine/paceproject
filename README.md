@@ -18,7 +18,10 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-3. Open `.env` and paste your OpenAI key after `OPENAI_API_KEY=`
+3. Open `.env` and paste a free Groq API key after `GROQ_API_KEY=`
+   (get one in ~30 seconds at https://console.groq.com/keys - no credit card
+   required). OpenAI is also supported as a paid alternative if you'd rather
+   use `OPENAI_API_KEY` instead.
 
 4. Start the site:
 
@@ -34,6 +37,7 @@ Notes:
 
 - If you skip the key, the site still works, but uses fallback mode instead of full AI.
 - With a key in `.env`, AI is shared for all visitors to your deployed app (users do not need their own key).
+- If both `GROQ_API_KEY` and `OPENAI_API_KEY` are set, Groq is used first.
 
 It also includes:
 
@@ -102,9 +106,22 @@ The site reads all available corpus chunk files directly from:
 
 ### Optional: Enable AI synthesis for About Me
 
-The local server now includes an API endpoint at `/api/ai-synthesize` used by the `Let's go` flow on the homepage.
+The local server includes an API endpoint at `/api/ai-synthesize`. When you write your
+story on the homepage and open **About Me**, the page sends your text (plus any matched
+interview quotes) to this endpoint, which synthesizes a headline, achievements,
+aspirations, and an IDP (Individual Development Plan) worksheet.
 
-To enable real model-backed synthesis, set:
+To enable real model-backed synthesis for free, set a Groq key:
+
+```bash
+export GROQ_API_KEY="your_groq_api_key"
+export GROQ_MODEL="llama-3.3-70b-versatile"   # optional
+python scripts/serve_trace_searchable.py
+```
+
+Get a free Groq key (no credit card) at https://console.groq.com/keys.
+
+OpenAI is also supported if you'd rather use a paid key instead:
 
 ```bash
 export OPENAI_API_KEY="your_api_key"
@@ -112,7 +129,8 @@ export OPENAI_MODEL="gpt-4o-mini"   # optional
 python scripts/serve_trace_searchable.py
 ```
 
-If `OPENAI_API_KEY` is not set, the site still works and uses a local fallback synthesizer.
+If neither key is set, the site still works and uses a local, rule-based fallback
+synthesizer instead of a model.
 
 ## Notes
 
