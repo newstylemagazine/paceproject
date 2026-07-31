@@ -341,7 +341,7 @@ function renderSpiderweb(matches) {
   });
 
   intakeStage.classList.add("is-active");
-  continuePrompt.textContent = "Click a voice to hear a question grown from their story, or keep writing in response to what resonates.";
+  continuePrompt.textContent = "Click a voice to get a question based on their story, then keep writing in response.";
 }
 
 async function openQuotePopup(match) {

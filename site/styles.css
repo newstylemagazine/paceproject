@@ -1,12 +1,12 @@
 :root {
-  --bg: #f6f1e6;
-  --text: #2c2620;
-  --brand: #b5603c;
-  --brand-dark: #8f4a2d;
-  --card: #fffdf7;
-  --stroke: #ddd0ba;
-  --muted: #6e6354;
-  --mark-bg: #f0ddb8;
+  --bg: #ffffff;
+  --text: #0d0d0d;
+  --brand: #141414;
+  --brand-dark: #000000;
+  --card: #ffffff;
+  --stroke: #e3e3e3;
+  --muted: #6e6e80;
+  --mark-bg: #ececec;
 }
 
 * {
@@ -15,7 +15,7 @@
 
 body {
   margin: 0;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
   color: var(--text);
   background: var(--bg);
   min-height: 100vh;
@@ -59,7 +59,7 @@ body {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   text-decoration: none;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
   transition: background 0.2s;
@@ -74,13 +74,13 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-size: 0.78rem;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   color: var(--brand);
 }
 
 h1 {
   margin: 0 0 0.5rem;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
   font-size: clamp(2rem, 5vw, 3rem);
   line-height: 1.1;
   font-weight: normal;
@@ -135,7 +135,7 @@ h1 {
   padding: 0;
   font-size: clamp(1.7rem, 4vw, 2.6rem);
   line-height: 1.25;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
   font-style: italic;
   color: var(--text);
   quotes: none;
@@ -164,7 +164,7 @@ h1 {
 .quote-hero figcaption {
   margin-top: 0.75rem;
   font-size: 0.88rem;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
@@ -214,7 +214,7 @@ h1 {
 .quote-cell blockquote {
   margin: 0;
   padding: 0;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
   font-style: italic;
   line-height: 1.45;
   color: var(--text);
@@ -231,7 +231,7 @@ h1 {
 .quote-cell figcaption {
   margin-top: 0.6rem;
   font-size: 0.78rem;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--muted);
@@ -286,7 +286,7 @@ h1 {
 
 .inline-chip {
   display: inline-block;
-  background: #efe5d1;
+  background: #efefef;
   border: 1px solid var(--stroke);
   border-radius: 3px;
   padding: 0.1rem 0.42rem;
@@ -309,7 +309,7 @@ h1 {
   border-radius: 3px;
   padding: 0.3rem 0.6rem;
   font-size: 0.84rem;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
   cursor: pointer;
   transition: background 100ms ease, color 100ms ease;
 }
@@ -337,7 +337,7 @@ select {
   background: #fff;
   border-radius: 3px;
   padding: 0.65rem 0.85rem;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
 }
 
 #query:focus,
@@ -356,7 +356,7 @@ button {
   font-weight: 600;
   cursor: pointer;
   transition: background 100ms ease;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   letter-spacing: 0.04em;
 }
 
@@ -395,7 +395,7 @@ button:hover {
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
   color: var(--muted);
-  background: #faf5e9;
+  background: #fafafa;
 }
 
 .results {
@@ -414,7 +414,7 @@ button:hover {
   margin: 0;
   font-size: 1.1rem;
   font-weight: normal;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
 }
 
 .result-headline {
@@ -434,7 +434,7 @@ button:hover {
   color: #fff;
   border-radius: 2px;
   padding: 0.15rem 0.45rem;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 .meta {
@@ -465,11 +465,11 @@ button:hover {
 
 .tag-chip {
   font-size: 0.75rem;
-  background: #efe5d1;
+  background: #efefef;
   border: 1px solid var(--stroke);
   border-radius: 2px;
   padding: 0.1rem 0.4rem;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 .actions-row {
@@ -478,7 +478,7 @@ button:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
-  border-top: 1px solid #e8ddc7;
+  border-top: 1px solid var(--stroke);
   padding-top: 0.65rem;
 }
 
@@ -508,7 +508,7 @@ button:hover {
   border-radius: 3px;
   padding: 0.35rem 0.65rem;
   font-size: 0.85rem;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   cursor: pointer;
 }
 
@@ -519,7 +519,7 @@ button:hover {
 
 mark {
   background: var(--mark-bg);
-  color: #5c2e18;
+  color: #0d0d0d;
   padding: 0 0.1rem;
   border-radius: 1px;
 }
@@ -567,13 +567,13 @@ mark {
 
 /* IDP Sidebar Styles */
 .idp-sidebar {
-  background: linear-gradient(135deg, #f5ead9 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #f4f4f4 0%, #ffffff 100%);
   border: 2px solid var(--brand);
   border-radius: 12px;
   padding: 1.5rem;
   position: sticky;
   top: 2rem;
-  box-shadow: 0 4px 12px rgba(237, 27, 47, 0.15);
+  box-shadow: 0 4px 12px rgba(13, 13, 13, 0.12);
   display: none;
 }
 
@@ -594,7 +594,7 @@ mark {
   margin: 0;
   color: var(--brand);
   font-size: 1.1rem;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 .idp-close-sidebar {
@@ -614,7 +614,7 @@ mark {
 }
 
 .idp-close-sidebar:hover {
-  background: #efe5d1;
+  background: #efefef;
   color: var(--text);
 }
 
@@ -660,7 +660,7 @@ mark {
 .idp-answer-area textarea:focus {
   outline: none;
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(237, 27, 47, 0.1);
+  box-shadow: 0 0 0 3px rgba(13, 13, 13, 0.08);
 }
 
 #idpSaveButton {
@@ -669,7 +669,7 @@ mark {
   border: none;
   padding: 0.6rem 1.2rem;
   border-radius: 6px;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
@@ -706,13 +706,13 @@ mark {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   text-decoration: none;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
 }
 
 .about-header-button:hover {
-  background: #f5ead9;
+  background: #f2f2f2;
 }
 
 .search-index-button {
@@ -725,13 +725,13 @@ mark {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   text-decoration: none;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-weight: 600;
   font-size: 0.9rem;
 }
 
 .search-index-button:hover {
-  background: #f5ead9;
+  background: #f2f2f2;
 }
 
 .hero .about-header-button {
@@ -817,7 +817,7 @@ mark {
 
 .story-input:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(181, 96, 60, 0.16);
+  box-shadow: 0 0 0 2px rgba(13, 13, 13, 0.1);
 }
 
 .go-attached {
@@ -862,7 +862,7 @@ mark {
 
 .drop-zone.is-dragover {
   border-color: var(--brand);
-  background: #f5ead9;
+  background: #f2f2f2;
   color: var(--brand-dark);
 }
 
@@ -899,7 +899,7 @@ mark {
   margin: 0;
   font-size: 0.85rem;
   color: var(--brand);
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 .quote-node p {
@@ -1007,7 +1007,7 @@ mark {
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--muted);
-  background: #faf5e9;
+  background: #fafafa;
 }
 
 #uploadInput {
@@ -1115,7 +1115,7 @@ mark {
   border: 1px solid var(--stroke);
   border-radius: 2px;
   padding: 0.1rem 0.35rem;
-  background: #efe5d1;
+  background: #efefef;
 }
 
 #recommendationList .match-actions {
@@ -1166,7 +1166,7 @@ mark {
   align-items: flex-start;
   gap: 0.65rem;
   border-left: 2px solid var(--brand);
-  background: #faf5e9;
+  background: #fafafa;
   padding: 0.55rem 0.7rem;
   font-size: 0.92rem;
   line-height: 1.5;
@@ -1176,7 +1176,7 @@ mark {
 .idp-line strong {
   color: var(--brand);
   display: block;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1195,7 +1195,7 @@ mark {
   color: #fff;
   display: grid;
   place-items: center;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -1336,7 +1336,7 @@ mark {
 
 .source-badge {
   display: inline-block;
-  font-family: "Computer Modern Sans", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1347,12 +1347,12 @@ mark {
 }
 
 .source-badge.source-ai {
-  background: linear-gradient(120deg, var(--brand), #ff6a4d);
+  background: var(--brand);
   color: #fff;
 }
 
 .source-badge.source-fallback {
-  background: #e8ddc7;
+  background: #ececec;
   color: var(--muted);
   border: 1px solid var(--stroke);
 }
@@ -1408,7 +1408,7 @@ mark {
 
 .skeleton-line,
 .skeleton-block {
-  background: linear-gradient(90deg, #e8ddc7, #f2ead9, #e8ddc7);
+  background: linear-gradient(90deg, #eee, #f6f6f6, #eee);
   border-radius: 3px;
   animation: skeleton-pulse 1.3s ease-in-out infinite;
   list-style: none;
@@ -1484,13 +1484,12 @@ button,
 
 .quote-popup-question {
   margin: 0 0.95rem 0.5rem;
-  padding: 0.75rem 0.9rem;
-  border-left: 3px solid var(--brand);
-  background: var(--mark-bg);
-  border-radius: 0 10px 10px 0;
-  font-style: italic;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid var(--stroke);
   line-height: 1.55;
   color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 0.94rem;
 }
 
 .quote-popup-question:empty {
@@ -1499,7 +1498,6 @@ button,
 
 .quote-popup-question.is-loading {
   color: var(--muted);
-  font-style: normal;
 }
 
 /* ── About page: reflective schema ───────────────────────────────────────── */
@@ -1514,7 +1512,7 @@ button,
 .rec-quote {
   margin: 0.5rem 0;
   line-height: 1.55;
-  font-family: "Computer Modern Serif", Georgia, serif;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
 }
 
 .upload-ai-note {
@@ -1525,17 +1523,23 @@ button,
 }
 
 .provocation-card {
-  background: var(--brand);
-  border-color: var(--brand);
+  border-color: var(--stroke);
+}
+
+.provocation-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 .provocation-text {
   margin: 0;
-  font-family: "Computer Modern Serif", Georgia, serif;
-  font-style: italic;
-  font-size: clamp(1.05rem, 2.4vw, 1.4rem);
-  line-height: 1.5;
-  color: #fff8ee;
+  line-height: 1.6;
+  font-size: 1rem;
+  color: var(--text);
 }
 
 .provocation-text:empty {

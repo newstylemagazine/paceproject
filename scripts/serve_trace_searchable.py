@@ -33,43 +33,46 @@ MAX_TEXT_EXCERPT_CHARS = 3000
 
 # Earthy, personal, considerate - the opposite of a corporate IDP worksheet.
 SYNTHESIS_SYSTEM_PROMPT = (
-    "You are a warm, perceptive companion helping someone reflect on their life and "
-    "path by weaving together what they've written, anything they've shared (documents, "
-    "photos), and real voices from an oral-history archive of people describing turning "
-    "points in their own lives.\n\n"
-    "Write with an earthy, personal, considerate tone - like a thoughtful friend sitting "
-    "with them, not a career coach or HR document. Never use corporate language (no "
-    "'leverage', 'actionable', 'KPIs', 'professional development', 'synergy'). Use plain, "
-    "warm, sometimes surprising language. Be specific and grounded in what the person "
-    "actually shared - never generic.\n\n"
+    "You are a direct, perceptive reader helping someone think about their life and path "
+    "by connecting what they've written, anything they've shared (documents, photos), and "
+    "real voices from an oral-history archive of people describing turning points in their "
+    "own lives.\n\n"
+    "Write in a personal, considerate tone, but plain and direct - not corporate, and not "
+    "sentimental. Avoid corporate language ('leverage', 'actionable', 'KPIs', 'professional "
+    "development', 'synergy'). Also avoid greeting-card language, forced poetry, or "
+    "therapist-speak ('sit with', 'hold space', 'journey'). Say things the way a smart, "
+    "honest friend would say them once, plainly. Be specific and grounded in what the "
+    "person actually shared - never generic.\n\n"
     "Return only valid JSON with these keys:\n"
     "- mirror_headline: a short phrase (under 12 words) reflecting something true or "
-    "surprising back to the person, drawn from their own words or what they shared.\n"
-    "- reflection: 2-4 warm sentences connecting what they shared to a larger pattern, "
-    "gently noticing something they might not have said outright.\n"
+    "surprising back to the person, drawn from their own words or what they shared. Plain, "
+    "not flowery.\n"
+    "- reflection: 2-4 direct sentences connecting what they shared to a larger pattern, "
+    "noticing something they might not have said outright.\n"
     "- threads: an array of 2-4 short prompts (each under 20 words), second person - not "
-    "action items, but honest questions or quiet tensions worth sitting with.\n"
+    "action items, but honest, specific questions worth thinking about.\n"
     "- resonances: an array of up to 4 objects with keys 'slug' (must exactly match one of "
-    "the provided interview slugs) and 'why' (one warm, plain-spoken sentence, under 25 "
-    "words, on what resonates - never say 'keyword match' or anything mechanical).\n"
-    "- provocation: one closing sentence, personal and inviting, nudging them to reconsider "
-    "a path without prescribing one."
+    "the provided interview slugs) and 'why' (one plain, specific sentence, under 25 words, "
+    "on what resonates - never say 'keyword match' or anything mechanical, and never "
+    "sentimental).\n"
+    "- provocation: one closing sentence, direct and specific, nudging them to reconsider a "
+    "path without prescribing one. Not an inspirational quote."
 )
 
 QUESTION_SYSTEM_PROMPT = (
-    "You help someone reflect on their life and path. They just wrote something, and an "
+    "You help someone think about their life and path. They just wrote something, and an "
     "excerpt from a real interview archive was surfaced alongside it. Write ONE short, "
-    "warm, specific question (under 30 words), addressed directly to them as 'you', "
-    "grounded in a concrete detail from the excerpt, inviting them to keep writing. Earthy, "
-    "personal, considerate - not corporate, not clinical-therapist. "
+    "plain, specific question (under 30 words), addressed directly to them as 'you', "
+    "grounded in a concrete detail from the excerpt, inviting them to keep writing. Direct "
+    "and personal - not corporate, not therapist-speak, not a sentimental quote. "
     'Return only valid JSON: {"question": "..."}'
 )
 
 IMAGE_DESCRIPTION_PROMPT = (
-    "Someone shared this photo as part of reflecting on their life and work. In 1-2 warm, "
-    "specific sentences, describe what stands out about it and what it might quietly reveal "
-    "about their life, work, or state of mind right now. Be concrete about what you actually "
-    "see - avoid generic phrases."
+    "Someone shared this photo as part of thinking about their life and work. In 1-2 plain, "
+    "specific sentences, describe what stands out about it and what it might reveal about "
+    "their life, work, or state of mind right now. Be concrete about what you actually see - "
+    "avoid generic phrases and avoid sentimental language."
 )
 
 
@@ -319,13 +322,13 @@ def call_text_provider(messages: list[dict[str, Any]]) -> tuple[str, Any] | None
 def fallback_about_payload(text: str, recommendations: list[dict[str, Any]]) -> dict[str, Any]:
     sentences = sentence_split(text)
     threads_source = pick_sentences(text, r"want|hope|worry|afraid|wonder|dream|stuck|torn|next|maybe", limit=3)
-    headline = sentences[0][:90] if sentences else "You showed up here with something on your mind"
+    headline = sentences[0][:90] if sentences else "Nothing written yet"
 
     kindred = []
     for rec in recommendations[:3]:
         kindred.append({
             "title": rec.get("title") or "A voice from the archive",
-            "why": "Something in what they lived through echoes a thread in what you just wrote.",
+            "why": "Their path crosses a few of the same words you just used.",
             "quote": rec.get("snippet") or "",
             "url": rec.get("url") or "#",
         })
@@ -335,14 +338,14 @@ def fallback_about_payload(text: str, recommendations: list[dict[str, Any]]) -> 
         "reflection": (
             " ".join(sentences[:3])
             if sentences
-            else "You haven't written much yet - but even a few honest lines are enough to start noticing a pattern."
+            else "Not much to work with yet - a few more specific sentences will surface a pattern."
         ),
         "threads": threads_source or [
-            "What part of this are you not saying out loud yet?",
+            "What part of this haven't you said out loud yet?",
             "If nobody was watching, would you still choose this path?",
         ],
         "kindred_voices": kindred,
-        "provocation": "Keep writing - the more you put down, the more the pattern in your own path starts to show itself.",
+        "provocation": "Write more, and the pattern in your own path gets easier to see.",
     }
 
 
@@ -421,8 +424,8 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
 def fallback_question(excerpt_title: str, excerpt_text: str) -> str:
     clipped = re.sub(r"\s+", " ", excerpt_text or "").strip()[:140]
     if not clipped:
-        return f"What made {excerpt_title or 'this voice'} feel worth pausing on for you?"
-    return f'{excerpt_title or "One person"} once said something like: "{clipped}..." - does any part of that land close to home?'
+        return f"What made {excerpt_title or 'this voice'} worth pausing on?"
+    return f'{excerpt_title or "One person"} said: "{clipped}..." What\'s your version of that?'
 
 
 def ask_question(payload: dict[str, Any]) -> dict[str, Any]:

@@ -133,8 +133,8 @@ function renderEmptyState() {
 function renderLoadingState() {
   const e = els();
   e.page.classList.add("is-loading");
-  e.headline.textContent = "Sitting with what you wrote…";
-  e.intro.textContent = "Reading your story, looking at what you shared, and listening for the voices that echo it.";
+  e.headline.textContent = "Working through what you wrote…";
+  e.intro.textContent = "Reading your story, looking at what you shared, and finding related interviews.";
   if (e.statusLine) e.statusLine.textContent = "This usually takes a couple of seconds.";
   if (e.regenerateButton) e.regenerateButton.hidden = true;
   e.threadList.innerHTML = '<li class="skeleton-line"></li><li class="skeleton-line"></li>';
@@ -163,8 +163,8 @@ function renderAbout(payload, { fromCache } = {}) {
   if (e.regenerateButton) e.regenerateButton.hidden = false;
   if (e.statusLine) {
     e.statusLine.textContent = fromCache
-      ? "Showing what came up last time. Write more and regenerate whenever it's ready."
-      : "Freshly grown from what you just wrote and shared.";
+      ? "Showing the last version generated. Write more and regenerate whenever it's ready."
+      : "Freshly generated from what you just wrote and shared.";
   }
 
   fillThreads(e.threadList, about.threads);
