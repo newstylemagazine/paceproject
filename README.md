@@ -132,6 +132,28 @@ python scripts/serve_trace_searchable.py
 If neither key is set, the site still works and uses a local, rule-based fallback
 synthesizer instead of a model.
 
+## Deploying the AI backend (Cloudflare Pages)
+
+GitHub Pages only serves static files, so it can't run the Python server
+above. The `functions/` directory is a JavaScript port of the same AI
+logic (`/api/ai-synthesize`, `/api/ai-question`), written as Cloudflare
+Pages Functions, which deploy for free alongside a static site with no
+cold-start delay:
+
+1. Go to the Cloudflare dashboard -> Workers & Pages -> Create -> Pages ->
+   Connect to Git, and select this repository.
+2. Build settings: no build command, build output directory `/` (repo
+   root) - same layout GitHub Pages already uses.
+3. In the project's Settings -> Environment variables, add `GROQ_API_KEY`
+   (get a free key at https://console.groq.com/keys). `OPENAI_API_KEY` is
+   also supported as a paid alternative.
+4. Deploy. Cloudflare redeploys automatically on every push to `main`,
+   same as the GitHub Pages workflow.
+
+The frontend needs no changes - it already calls the same relative
+`/api/...` paths, which will resolve against whichever domain serves the
+page.
+
 ## Notes
 
 - The interview pages already contain written Q/A transcript text, so the extractors normalize published page content instead of performing speech-to-text.
