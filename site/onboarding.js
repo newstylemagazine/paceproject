@@ -236,7 +236,7 @@ function renderSpiderweb(matches) {
   const stageHalfHeight = Math.max(220, (intakeStage.clientHeight || 620) / 2);
   const nodeWidth = isMobile ? Math.min(220, Math.max(150, Math.floor(stageHalfWidth * 0.9))) : 220;
   const nodeHeight = isMobile ? 138 : 130;
-  const inputShell = intakeStage.querySelector(".input-shell");
+  const inputShell = intakeStage.querySelector(".write-surface");
   const stageRect = intakeStage.getBoundingClientRect();
   const shellRect = inputShell ? inputShell.getBoundingClientRect() : null;
   const exclusionHalfX = shellRect ? shellRect.width / 2 + nodeWidth / 2 + 28 : 420;
@@ -332,6 +332,7 @@ function renderSpiderweb(matches) {
     node.style.minHeight = `${nodeHeight}px`;
     node.style.setProperty("--x", `${x}px`);
     node.style.setProperty("--y", `${y}px`);
+    node.style.setProperty("--r", `${(Math.random() * 6 - 3).toFixed(2)}deg`);
     node.style.animationDelay = `${index * 60}ms`;
     node.innerHTML = `
       <h3>${match.title}</h3>
@@ -342,6 +343,36 @@ function renderSpiderweb(matches) {
 
   intakeStage.classList.add("is-active");
   continuePrompt.textContent = "Click a voice to get a question based on their story, then keep writing in response.";
+}
+
+async function fetchQuestion(match) {
+  const response = await fetch("/api/ai-question", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: state.text, match }),
+  });
+  if (!response.ok) {
+    throw new Error(`Server responded ${response.status}`);
+  }
+  const result = await response.json();
+  return result.question || "";
+}
+
+async function askAboutTopMatch(match) {
+  continuePrompt.classList.add("is-loading");
+  continuePrompt.textContent = "Thinking of a question worth asking...";
+
+  try {
+    const question = await fetchQuestion(match);
+    continuePrompt.textContent = question
+      ? `${match.title}: “${question}”`
+      : "Click a voice to get a question based on their story, then keep writing in response.";
+  } catch (error) {
+    console.error("Could not fetch a question:", error);
+    continuePrompt.textContent = "Click a voice to get a question based on their story, then keep writing in response.";
+  } finally {
+    continuePrompt.classList.remove("is-loading");
+  }
 }
 
 async function openQuotePopup(match) {
@@ -358,16 +389,7 @@ async function openQuotePopup(match) {
   quotePopup.setAttribute("aria-hidden", "false");
 
   try {
-    const response = await fetch("/api/ai-question", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: state.text, match }),
-    });
-    if (!response.ok) {
-      throw new Error(`Server responded ${response.status}`);
-    }
-    const result = await response.json();
-    quotePopupQuestion.textContent = result.question || "";
+    quotePopupQuestion.textContent = await fetchQuestion(match);
   } catch (error) {
     console.error("Could not fetch a question:", error);
     quotePopupQuestion.textContent = "";
@@ -384,10 +406,33 @@ function closeQuotePopup() {
   quotePopup.setAttribute("aria-hidden", "true");
 }
 
+let autoMatchTimer = null;
+let lastMatchedText = "";
+const AUTO_MATCH_IDLE_MS = 1400;
+const AUTO_MATCH_MIN_WORDS = 6;
+
+function triggerMatch(text) {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed === lastMatchedText) {
+    return;
+  }
+  lastMatchedText = trimmed;
+  const matches = buildMatches(trimmed, state.uploads);
+  renderSpiderweb(matches);
+  if (matches.length) {
+    askAboutTopMatch(matches[0]);
+  }
+}
+
 function refreshWordCount() {
   state.text = storyInput.value;
   wordCount.textContent = `${countWords(state.text)} words`;
   safeSetStorage(PROFILE_STORAGE_KEY, state);
+
+  clearTimeout(autoMatchTimer);
+  if (countWords(state.text) >= AUTO_MATCH_MIN_WORDS) {
+    autoMatchTimer = setTimeout(() => triggerMatch(state.text), AUTO_MATCH_IDLE_MS);
+  }
 }
 
 async function loadCorpus() {
@@ -503,8 +548,9 @@ function wireEvents() {
       return;
     }
 
-    const matches = buildMatches(text, state.uploads);
-    renderSpiderweb(matches);
+    clearTimeout(autoMatchTimer);
+    lastMatchedText = "";
+    triggerMatch(text);
   });
 }
 

@@ -12,46 +12,50 @@
   </head>
   <body>
     <main class="page">
+      <nav class="hero-nav">
+        <a href="search.html" class="nav-link">Browse the archive</a>
+        <a href="about-me.html" class="nav-link">Your reflection</a>
+      </nav>
+
       <header class="hero">
-        <a href="search.html" class="search-index-button">Browse the archive</a>
         <p class="eyebrow">A quiet place to think out loud</p>
         <h1>Write. Share what's lying around. See who's been here before you.</h1>
         <p class="subtitle">
           Type whatever is actually on your mind - or drop in an essay, a photo of your desk,
           whatever's around. Real people who once stood where you're standing will answer back.
         </p>
-        <a href="about-me.html" class="about-header-button">Your reflection</a>
       </header>
 
       <section class="intake-panel" aria-label="Story input">
         <div id="intakeStage" class="intake-stage">
-          <div class="input-shell">
-            <textarea id="storyInput" class="story-input" rows="8" placeholder="Start anywhere. 'I keep thinking about taking time off...' 'I'm not sure this job is still me...' whatever's true right now."></textarea>
-            <div
-              id="dropZone"
-              class="drop-zone"
-              tabindex="0"
-              role="button"
-              aria-label="Attach a file, essay, or photo"
-            >
-              <span>Drop a file here, or <span class="drop-zone-link">click to attach</span> - an essay, a photo, whatever feels relevant.</span>
-              <input id="uploadInput" type="file" multiple hidden accept="image/*,.txt,.md,.pdf,.doc,.docx" />
-            </div>
-            <div id="uploadTray" class="upload-tray" aria-live="polite"></div>
-            <div class="go-row">
-              <p class="go-helper">Write a paragraph, then press Go and see who answers.</p>
-              <button id="letsGoButton" type="button" class="go-attached">Go</button>
-            </div>
+          <div class="write-surface">
+            <textarea id="storyInput" class="story-input" rows="3" placeholder="Start anywhere. &ldquo;I keep thinking about taking time off...&rdquo; &ldquo;I'm not sure this job is still me...&rdquo; whatever's true right now."></textarea>
           </div>
           <div id="quoteNodes" class="quote-nodes" aria-live="polite"></div>
         </div>
 
-        <div class="controls-row">
-          <span class="status" id="wordCount">0 words</span>
+        <div class="intake-footer">
+          <div
+            id="dropZone"
+            class="drop-zone"
+            tabindex="0"
+            role="button"
+            aria-label="Attach a file, essay, or photo"
+          >
+            <span class="drop-zone-link">+ attach a file</span>
+            <span class="drop-zone-hint"> - an essay, a photo, whatever feels relevant</span>
+            <input id="uploadInput" type="file" multiple hidden accept="image/*,.txt,.md,.pdf,.doc,.docx" />
+          </div>
+          <div id="uploadTray" class="upload-tray" aria-live="polite"></div>
+
+          <div class="go-row">
+            <span class="status" id="wordCount">0 words</span>
+            <button id="letsGoButton" type="button" class="go-attached">Go</button>
+          </div>
         </div>
 
         <p id="continuePrompt" class="continue-prompt">
-          Press Go to see who else has stood here, then keep writing in response to what resonates.
+          Write a paragraph, then press Go and see who answers.
         </p>
       </section>
 
