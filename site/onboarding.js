@@ -231,7 +231,7 @@ function renderSpiderweb(matches) {
   }
 
   const isMobile = window.innerWidth < 760;
-  const visibleMatches = matches.slice(0, 6);
+  const visibleMatches = matches.slice(0, isMobile ? 3 : 6);
   const stageHalfWidth = Math.max(180, (intakeStage.clientWidth || 900) / 2);
   const stageHalfHeight = Math.max(220, (intakeStage.clientHeight || 620) / 2);
   const nodeWidth = isMobile ? Math.min(220, Math.max(150, Math.floor(stageHalfWidth * 0.9))) : 220;
@@ -268,11 +268,19 @@ function renderSpiderweb(matches) {
     }
   }
 
+  // Radii scale to the actual space available instead of fixed pixel
+  // constants, so the rings still fit (and don't pile up on each other)
+  // whichever way the stage ends up being sized.
+  const usableHalf = Math.min(stageHalfWidth, stageHalfHeight);
+  const nodeHalf = Math.max(nodeWidth, nodeHeight) / 2;
+  const outerRadius = Math.max(nodeHalf + 40, usableHalf - nodeHalf - 12);
+  const innerRadius = Math.max(nodeHalf + 20, outerRadius * 0.58);
+
   const points = visibleMatches.map((_, index) => {
     const ring = index < 3 ? 0 : 1;
     const ringSlots = ring === 0 ? Math.min(3, visibleMatches.length) : Math.max(1, visibleMatches.length - 3);
     const slotIndex = ring === 0 ? index : index - 3;
-    const radius = ring === 0 ? (isMobile ? 145 : 175) : (isMobile ? 245 : 305);
+    const radius = ring === 0 ? innerRadius : outerRadius;
     const angleOffset = ring === 0 ? 0 : Math.PI / Math.max(1, ringSlots);
     const angle = (Math.PI * 2 * slotIndex) / ringSlots + angleOffset;
     return {

@@ -758,7 +758,7 @@ mark {
 }
 
 .intake-stage.is-active {
-  min-height: 460px;
+  min-height: 560px;
   align-items: center;
 }
 
