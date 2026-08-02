@@ -132,26 +132,39 @@ python scripts/serve_trace_searchable.py
 If neither key is set, the site still works and uses a local, rule-based fallback
 synthesizer instead of a model.
 
-## Deploying the AI backend (Cloudflare Pages)
+## Deploying the AI backend (Cloudflare)
 
 GitHub Pages only serves static files, so it can't run the Python server
-above. The `functions/` directory is a JavaScript port of the same AI
-logic (`/api/ai-synthesize`, `/api/ai-question`), written as Cloudflare
-Pages Functions, which deploy for free alongside a static site with no
-cold-start delay:
+above. The AI logic (`/api/ai-synthesize`, `/api/ai-question`) has been
+ported to JavaScript twice, for two different Cloudflare deploy flows -
+use whichever one the dashboard gives you:
 
-1. Go to the Cloudflare dashboard -> Workers & Pages -> Create -> Pages ->
-   Connect to Git, and select this repository.
-2. Build settings: no build command, build output directory `/` (repo
-   root) - same layout GitHub Pages already uses.
-3. In the project's Settings -> Environment variables, add `GROQ_API_KEY`
-   (get a free key at https://console.groq.com/keys). `OPENAI_API_KEY` is
-   also supported as a paid alternative.
-4. Deploy. Cloudflare redeploys automatically on every push to `main`,
-   same as the GitHub Pages workflow.
+- `worker/index.js` + `wrangler.jsonc` - for the dashboard's **"Create a
+  Worker" -> Import a Git repository** flow (this is what Cloudflare
+  defaults new Git-connected projects to as of 2026).
+- `functions/api/*.js` - classic Cloudflare Pages Functions, for the
+  older **Workers & Pages -> Create application -> Pages -> Connect to
+  Git** flow, if that's still available on your account.
 
+Both read from the same shared logic in `functions/_lib/`, so there's
+only one place to fix things if the AI behavior ever needs to change.
+
+To deploy:
+
+1. Go to the Cloudflare dashboard (dash.cloudflare.com) -> **Workers &
+   Pages** -> **Create application** -> import this GitHub repository.
+2. If you land in a "Create a Worker" flow (asks for an API token name
+   and has a "Variable name/value" field), it will auto-detect
+   `wrangler.jsonc` and use `worker/index.js`. Add an environment
+   variable named `GROQ_API_KEY` with a free key from
+   https://console.groq.com/keys, click **Encrypt**, then **Deploy**.
+3. If you land in a classic Pages flow instead, set build command blank
+   and build output directory to `/`, then add `GROQ_API_KEY` under
+   Settings -> Environment variables after the first deploy.
+
+Either way, Cloudflare redeploys automatically on every push to `main`.
 The frontend needs no changes - it already calls the same relative
-`/api/...` paths, which will resolve against whichever domain serves the
+`/api/...` paths, which resolve against whichever domain serves the
 page.
 
 ## Notes
