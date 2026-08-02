@@ -1,0 +1,7 @@
+worker/
+functions/
+wrangler.jsonc
+.git/
+.github/
+node_modules/
+.DS_Store
