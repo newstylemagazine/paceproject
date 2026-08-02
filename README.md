@@ -132,40 +132,33 @@ python scripts/serve_trace_searchable.py
 If neither key is set, the site still works and uses a local, rule-based fallback
 synthesizer instead of a model.
 
-## Deploying the AI backend (Cloudflare)
+## Deploying the AI backend (Netlify)
 
 GitHub Pages only serves static files, so it can't run the Python server
-above. The AI logic (`/api/ai-synthesize`, `/api/ai-question`) has been
-ported to JavaScript twice, for two different Cloudflare deploy flows -
-use whichever one the dashboard gives you:
-
-- `worker/index.js` + `wrangler.jsonc` - for the dashboard's **"Create a
-  Worker" -> Import a Git repository** flow (this is what Cloudflare
-  defaults new Git-connected projects to as of 2026).
-- `functions/api/*.js` - classic Cloudflare Pages Functions, for the
-  older **Workers & Pages -> Create application -> Pages -> Connect to
-  Git** flow, if that's still available on your account.
-
-Both read from the same shared logic in `functions/_lib/`, so there's
-only one place to fix things if the AI behavior ever needs to change.
+above. The AI logic (`/api/ai-synthesize`, `/api/ai-question`) is ported
+to JavaScript in `netlify/functions/`, deployed as Netlify Functions.
+Netlify was chosen over Cloudflare because its dashboard and deploy flow
+have stayed stable for years - fewer surprises to walk through.
 
 To deploy:
 
-1. Go to the Cloudflare dashboard (dash.cloudflare.com) -> **Workers &
-   Pages** -> **Create application** -> import this GitHub repository.
-2. If you land in a "Create a Worker" flow (asks for an API token name
-   and has a "Variable name/value" field), it will auto-detect
-   `wrangler.jsonc` and use `worker/index.js`. Add an environment
-   variable named `GROQ_API_KEY` with a free key from
-   https://console.groq.com/keys, click **Encrypt**, then **Deploy**.
-3. If you land in a classic Pages flow instead, set build command blank
-   and build output directory to `/`, then add `GROQ_API_KEY` under
-   Settings -> Environment variables after the first deploy.
+1. Go to app.netlify.com -> log in with GitHub -> **Add new site** ->
+   **Import an existing project**.
+2. Choose GitHub, authorize it, and select this repository.
+3. Build command: leave blank. Publish directory: type `.`
+4. Click **Deploy site**. Netlify will pick up `netlify.toml` and
+   `netlify/functions/` automatically.
+5. Once deployed, go to **Site configuration -> Environment variables**
+   -> **Add a variable**, name it `GROQ_API_KEY`, paste in a free key
+   from https://console.groq.com/keys, save, then trigger **Deploys ->
+   Trigger deploy -> Deploy site** again so the function picks it up.
 
-Either way, Cloudflare redeploys automatically on every push to `main`.
-The frontend needs no changes - it already calls the same relative
-`/api/...` paths, which resolve against whichever domain serves the
-page.
+Netlify redeploys automatically on every push to `main` after that. The
+frontend needs no changes - it already calls the same relative `/api/...`
+paths, which resolve against whichever domain serves the page.
+
+(`functions/` and `worker/` in this repo are earlier, unused attempts at
+a Cloudflare version of the same backend, kept only for reference.)
 
 ## Notes
 
