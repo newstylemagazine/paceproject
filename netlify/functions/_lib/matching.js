@@ -48,6 +48,22 @@ export function scoreText(haystack, terms) {
   return score;
 }
 
+// Some scraped transcripts have a "Narrative | <date>" (or "Blog Narrative |
+// <date>") label baked directly into the start of the text - scrub it so
+// snippets and AI context show the actual voice, not the label.
+const BOILERPLATE_PREFIX = /^(?:blog\s+)?narrative\s*\|[^\n]*\n+/i;
+
+export function stripBoilerplate(text) {
+  return (text || "").replace(BOILERPLATE_PREFIX, "").trim();
+}
+
+// A handful of scraped rows are site navigation ("Find more PhD Narratives
+// on our TRaCE McGill website"), not an actual interview - skip them so
+// they never surface as a "recommendation".
+function isJunkRecord(record) {
+  return /^find more .*narratives?/i.test(record.title || "");
+}
+
 export function sentenceSplit(text) {
   const compact = (text || "").replace(/\s+/g, " ").trim();
   if (!compact) {
@@ -121,11 +137,11 @@ export async function buildRecommendations(requestUrl, text, uploadNames) {
 
   for (const record of corpus) {
     const slug = record.slug;
-    if (!slug) continue;
+    if (!slug || isJunkRecord(record)) continue;
 
     const title = String(record.title || "");
     const tags = (record.tags || []).join(" ");
-    const body = String(record.text || "");
+    const body = stripBoilerplate(record.text || "");
     const score = scoreText(title, terms) * 3 + scoreText(tags, terms) * 3 + scoreText(body, terms);
     if (score <= 0) continue;
 

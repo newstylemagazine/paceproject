@@ -33,9 +33,13 @@ export function fallbackAboutPayload(text, recommendations) {
 }
 
 export function fallbackQuestion(excerptTitle, excerptText) {
+  // Callers already show the excerpt's title separately (either as a
+  // heading, or prefixed onto this string themselves) - embedding it again
+  // here produced doubled, garbled-looking text like
+  // "Name, Title: "Name, Title said: ..."". Keep this self-contained.
   const clipped = (excerptText || "").replace(/\s+/g, " ").trim().slice(0, 140);
   if (!clipped) {
-    return `What made ${excerptTitle || "this voice"} worth pausing on?`;
+    return "What made this voice worth pausing on?";
   }
-  return `${excerptTitle || "One person"} said: "${clipped}..." What's your version of that?`;
+  return `They said: "${clipped}..." What's your version of that?`;
 }

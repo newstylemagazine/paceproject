@@ -6,7 +6,7 @@
 // folder - see functions/api/*.js for the (still-valid) classic Pages
 // Functions version, kept in case this project ever moves to classic
 // Pages Git integration instead.
-import { buildRecommendations } from "../functions/_lib/matching.js";
+import { buildRecommendations, stripBoilerplate } from "../functions/_lib/matching.js";
 import { callTextProvider, describeImage } from "../functions/_lib/providers.js";
 import { SYNTHESIS_SYSTEM_PROMPT, QUESTION_SYSTEM_PROMPT } from "../functions/_lib/prompts.js";
 import { fallbackAboutPayload, fallbackQuestion } from "../functions/_lib/fallback.js";
@@ -146,7 +146,7 @@ async function askQuestion(env, payload) {
   const text = String(payload.text || "").trim();
   const match = payload.match && typeof payload.match === "object" ? payload.match : {};
   const excerptTitle = String(match.title || "");
-  const excerptText = String(match.fullText || match.quote || "");
+  const excerptText = stripBoilerplate(String(match.fullText || match.quote || ""));
 
   const userPayload = {
     user_text: text,

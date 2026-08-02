@@ -103,6 +103,23 @@ function scoreText(haystack, terms) {
   return score;
 }
 
+// Some of the scraped transcripts have a "Narrative | <date>" (or "Blog
+// Narrative | <date>") label baked directly into the start of the text -
+// scrub it so quote cards and questions show the actual voice, not the
+// label.
+const BOILERPLATE_PREFIX = /^(?:blog\s+)?narrative\s*\|[^\n]*\n+/i;
+
+function stripBoilerplate(text) {
+  return (text || "").replace(BOILERPLATE_PREFIX, "").trim();
+}
+
+// A handful of scraped rows are site navigation ("Find more PhD Narratives
+// on our TRaCE McGill website"), not an actual interview - skip them so
+// they never show up as a "match".
+function isJunkRecord(record) {
+  return /^find more .*narratives?/i.test(record.title || "");
+}
+
 function buildMatches(text, uploads) {
   const uploadTerms = uploads
     .map((item) => `${item.name.replace(/\.[^.]+$/, "")} ${item.textExcerpt || ""}`)
@@ -114,7 +131,7 @@ function buildMatches(text, uploads) {
 
   const bestBySlug = new Map();
   for (const record of corpus) {
-    if (!record.slug) {
+    if (!record.slug || isJunkRecord(record)) {
       continue;
     }
 
@@ -129,7 +146,7 @@ function buildMatches(text, uploads) {
 
     const existing = bestBySlug.get(record.slug);
     if (!existing || total > existing.score) {
-      const clean = String(record.text || "").replace(/\s+/g, " ").trim();
+      const clean = stripBoilerplate(record.text || "").replace(/\s+/g, " ").trim();
       bestBySlug.set(record.slug, {
         title: record.title || "Interview voice",
         quote: clean.slice(0, 140) + (clean.length > 140 ? "..." : ""),
@@ -573,8 +590,18 @@ async function initialize() {
   wordCount.textContent = `${countWords(state.text)} words`;
   renderUploads();
 
+  // The archive (corpus) loads asynchronously. Without this, a click on Go
+  // before it finishes would silently run against an empty corpus (0
+  // matches) and look like the button did nothing - the archive would only
+  // be ready by the time someone clicked a second time.
+  letsGoButton.disabled = true;
+  letsGoButton.textContent = "Loading archive...";
+
   wireEvents();
   await loadCorpus();
+
+  letsGoButton.disabled = false;
+  letsGoButton.textContent = "Go";
 }
 
 initialize().catch((error) => {

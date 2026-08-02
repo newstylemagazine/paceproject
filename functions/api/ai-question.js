@@ -1,4 +1,5 @@
 import { callTextProvider } from "../_lib/providers.js";
+import { stripBoilerplate } from "../_lib/matching.js";
 import { QUESTION_SYSTEM_PROMPT } from "../_lib/prompts.js";
 import { fallbackQuestion } from "../_lib/fallback.js";
 
@@ -16,7 +17,7 @@ async function askQuestion(env, payload) {
   const text = String(payload.text || "").trim();
   const match = payload.match && typeof payload.match === "object" ? payload.match : {};
   const excerptTitle = String(match.title || "");
-  const excerptText = String(match.fullText || match.quote || "");
+  const excerptText = stripBoilerplate(String(match.fullText || match.quote || ""));
 
   const userPayload = {
     user_text: text,

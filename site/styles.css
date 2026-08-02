@@ -801,8 +801,13 @@ mark {
   padding: 0.5rem 1.1rem;
 }
 
+.go-attached:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .go-row {
-  margin-top: 0.7rem;
+  margin-top: 1.1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -818,7 +823,7 @@ mark {
 }
 
 .drop-zone {
-  margin-top: 0.6rem;
+  margin-top: 1.4rem;
   display: inline-flex;
   align-items: baseline;
   gap: 0.3rem;
@@ -909,7 +914,7 @@ mark {
 }
 
 .continue-prompt {
-  margin: 0.6rem 0 0;
+  margin: 1.5rem 0 0;
   font-size: 0.95rem;
   color: var(--muted);
   line-height: 1.5;

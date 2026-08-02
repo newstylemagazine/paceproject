@@ -101,6 +101,26 @@ def score_text(haystack: str, terms: list[str]) -> int:
     return score
 
 
+# Some scraped transcripts have a "Narrative | <date>" (or "Blog Narrative |
+# <date>") label baked directly into the start of the text - scrub it so
+# snippets and AI context show the actual voice, not the label.
+_BOILERPLATE_PREFIX = re.compile(r"^(?:blog\s+)?narrative\s*\|[^\n]*\n+", re.IGNORECASE)
+
+
+def strip_boilerplate(text: str) -> str:
+    return _BOILERPLATE_PREFIX.sub("", text or "").strip()
+
+
+# A handful of scraped rows are site navigation ("Find more PhD Narratives on
+# our TRaCE McGill website"), not an actual interview - skip them so they
+# never surface as a "recommendation".
+_JUNK_TITLE = re.compile(r"^find more .*narratives?", re.IGNORECASE)
+
+
+def is_junk_record(record: dict[str, Any]) -> bool:
+    return bool(_JUNK_TITLE.match(str(record.get("title") or "")))
+
+
 def sentence_split(text: str) -> list[str]:
     compact = re.sub(r"\s+", " ", text or "").strip()
     if not compact:
@@ -141,11 +161,11 @@ def build_recommendations(text: str, upload_names: list[str]) -> list[dict[str, 
     best_by_slug: dict[str, dict[str, Any]] = {}
     for record in load_corpus():
         slug = record.get("slug")
-        if not slug:
+        if not slug or is_junk_record(record):
             continue
         title = str(record.get("title") or "")
         tags = " ".join(record.get("tags") or [])
-        body = str(record.get("text") or "")
+        body = strip_boilerplate(record.get("text") or "")
         score = score_text(title, terms) * 3 + score_text(tags, terms) * 3 + score_text(body, terms)
         if score <= 0:
             continue
@@ -422,17 +442,21 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def fallback_question(excerpt_title: str, excerpt_text: str) -> str:
+    # Callers already show the excerpt's title separately (heading or their
+    # own prefix) - embedding it again here produced doubled, garbled text
+    # like 'Name, Title: "Name, Title said: ..."'. Keep this self-contained.
+    del excerpt_title
     clipped = re.sub(r"\s+", " ", excerpt_text or "").strip()[:140]
     if not clipped:
-        return f"What made {excerpt_title or 'this voice'} worth pausing on?"
-    return f'{excerpt_title or "One person"} said: "{clipped}..." What\'s your version of that?'
+        return "What made this voice worth pausing on?"
+    return f'They said: "{clipped}..." What\'s your version of that?'
 
 
 def ask_question(payload: dict[str, Any]) -> dict[str, Any]:
     text = str(payload.get("text") or "").strip()
     match = payload.get("match") or {}
     excerpt_title = str(match.get("title") or "")
-    excerpt_text = str(match.get("fullText") or match.get("quote") or "")
+    excerpt_text = strip_boilerplate(str(match.get("fullText") or match.get("quote") or ""))
 
     user_payload = {
         "user_text": text,
