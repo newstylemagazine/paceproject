@@ -49,12 +49,21 @@ async function gatherUploadContext(env, uploads) {
   return { extraText: extraTextParts.join(" "), annotatedUploads: annotated };
 }
 
+function gatherInterviewNotes(interviewNotes) {
+  if (!interviewNotes || typeof interviewNotes !== "object") return "";
+  return Object.values(interviewNotes)
+    .map((note) => String(note || "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
 async function synthesize(env, requestUrl, payload) {
   const text = String(payload.text || "").trim();
   const uploads = Array.isArray(payload.uploads) ? payload.uploads : [];
+  const notesText = gatherInterviewNotes(payload.interviewNotes);
 
   const { extraText, annotatedUploads } = await gatherUploadContext(env, uploads);
-  const combinedText = `${text} ${extraText}`.trim();
+  const combinedText = `${text} ${extraText} ${notesText}`.trim();
   const uploadNames = annotatedUploads.map((item) => String(item.name || ""));
 
   const recommendations = await buildRecommendations(env, requestUrl, combinedText, uploadNames);
@@ -74,10 +83,15 @@ async function synthesize(env, requestUrl, payload) {
     textExcerpt: (item.textExcerpt || "").slice(0, 500),
   }));
 
+  const readerNotes = Object.entries(payload.interviewNotes || {})
+    .map(([slug, note]) => ({ slug, note: String(note || "").trim() }))
+    .filter((item) => item.note);
+
   const userPayload = {
     user_text: text,
     uploads: uploadContext,
     interview_context: interviewContext,
+    reader_notes: readerNotes,
   };
 
   const result = await callTextProvider(env, [

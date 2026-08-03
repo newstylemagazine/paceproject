@@ -60,6 +60,25 @@
           </div>
         </div>
       </section>
+
+      <div id="readerPanel" class="reader-panel" aria-hidden="true">
+        <div id="readerBackdrop" class="reader-backdrop"></div>
+        <div class="reader-drawer" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+          <div class="reader-header">
+            <div class="reader-header-text">
+              <h2 id="readerTitle"></h2>
+              <a id="readerSourceLink" class="reader-source-link" target="_blank" rel="noreferrer">View original &#8599;</a>
+            </div>
+            <button id="readerClose" type="button" class="reader-close" aria-label="Close">&times;</button>
+          </div>
+          <div id="readerBody" class="reader-body"></div>
+          <div class="reader-notes">
+            <label for="readerNotesInput" class="reader-notes-label">Notes</label>
+            <p id="readerNotesHint" class="reader-notes-hint"></p>
+            <textarea id="readerNotesInput" class="reader-notes-input" rows="3" placeholder="Jot down whatever this brings up - it'll feed into your reflection."></textarea>
+          </div>
+        </div>
+      </div>
     </main>
 
     <script src="onboarding.js"></script>

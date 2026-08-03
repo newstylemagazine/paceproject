@@ -43,6 +43,9 @@ SYNTHESIS_SYSTEM_PROMPT = (
     "therapist-speak ('sit with', 'hold space', 'journey'). Say things the way a smart, "
     "honest friend would say them once, plainly. Be specific and grounded in what the "
     "person actually shared - never generic.\n\n"
+    "The person may also include reader_notes - reactions they jotted down while reading "
+    "specific interview excerpts. Treat these as some of the most direct evidence of what's "
+    "actually on their mind, and weave them in concretely where relevant.\n\n"
     "Return only valid JSON with these keys:\n"
     "- mirror_headline: a short phrase (under 12 words) reflecting something true or "
     "surprising back to the person, drawn from their own words or what they shared. Plain, "
@@ -383,12 +386,21 @@ def fallback_about_payload(text: str, recommendations: list[dict[str, Any]]) -> 
     }
 
 
+def gather_interview_notes(interview_notes: Any) -> str:
+    if not isinstance(interview_notes, dict):
+        return ""
+    parts = [str(note or "").strip() for note in interview_notes.values()]
+    return " ".join(part for part in parts if part)
+
+
 def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     text = str(payload.get("text") or "").strip()
     uploads = payload.get("uploads") or []
+    interview_notes = payload.get("interviewNotes") or {}
+    notes_text = gather_interview_notes(interview_notes)
 
     extra_text, annotated_uploads = gather_upload_context(uploads)
-    combined_text = (text + " " + extra_text).strip()
+    combined_text = (text + " " + extra_text + " " + notes_text).strip()
     upload_names = [str(item.get("name") or "") for item in annotated_uploads if isinstance(item, dict)]
 
     recommendations = build_recommendations(combined_text, upload_names)
@@ -405,10 +417,16 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         {"name": item.get("name"), "aiDescription": item.get("aiDescription"), "textExcerpt": (item.get("textExcerpt") or "")[:500]}
         for item in annotated_uploads
     ]
+    reader_notes = [
+        {"slug": slug, "note": str(note or "").strip()}
+        for slug, note in interview_notes.items()
+        if isinstance(interview_notes, dict) and str(note or "").strip()
+    ]
     user_payload = {
         "user_text": text,
         "uploads": upload_context,
         "interview_context": context,
+        "reader_notes": reader_notes,
     }
 
     result = call_text_provider(

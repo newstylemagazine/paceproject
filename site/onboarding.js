@@ -32,11 +32,20 @@ const uploadTray = document.getElementById("uploadTray");
 const intakeStage = document.getElementById("intakeStage");
 const quoteFeed = document.getElementById("quoteFeed");
 const continuePrompt = document.getElementById("continuePrompt");
+const readerPanel = document.getElementById("readerPanel");
+const readerBackdrop = document.getElementById("readerBackdrop");
+const readerTitle = document.getElementById("readerTitle");
+const readerSourceLink = document.getElementById("readerSourceLink");
+const readerClose = document.getElementById("readerClose");
+const readerBody = document.getElementById("readerBody");
+const readerNotesInput = document.getElementById("readerNotesInput");
+const readerNotesHint = document.getElementById("readerNotesHint");
 
 let corpus = [];
 let state = {
   text: "",
   uploads: [],
+  interviewNotes: {},
 };
 let activeMatches = [];
 // Per-item fetched questions, keyed by index into activeMatches. Cleared
@@ -123,6 +132,14 @@ function isJunkRecord(record) {
   return /^find more .*narratives?/i.test(record.title || "");
 }
 
+const MAX_MATCHES = 20;
+const MAX_MATCHES_PER_SLUG = 3;
+
+// Unlike the old version, this does NOT collapse to one excerpt per
+// interviewee - a person can surface more than once if several of their
+// answers genuinely resonate, which is what makes "lots of excerpts"
+// possible. MAX_MATCHES_PER_SLUG just keeps any one interview from
+// crowding out everyone else.
 function buildMatches(text, uploads) {
   const uploadTerms = uploads
     .map((item) => `${item.name.replace(/\.[^.]+$/, "")} ${item.textExcerpt || ""}`)
@@ -132,7 +149,7 @@ function buildMatches(text, uploads) {
     return [];
   }
 
-  const bestBySlug = new Map();
+  const scored = [];
   for (const record of corpus) {
     if (!record.slug || isJunkRecord(record)) {
       continue;
@@ -147,20 +164,59 @@ function buildMatches(text, uploads) {
       continue;
     }
 
-    const existing = bestBySlug.get(record.slug);
-    if (!existing || total > existing.score) {
-      const clean = stripBoilerplate(record.text || "").replace(/\s+/g, " ").trim();
-      bestBySlug.set(record.slug, {
-        title: record.title || "Interview voice",
-        quote: clean.slice(0, 140) + (clean.length > 140 ? "..." : ""),
-        fullText: clean,
-        url: record.url || "#",
-        score: total,
-      });
+    const clean = stripBoilerplate(record.text || "").replace(/\s+/g, " ").trim();
+    // Real Q&A entries carry the interviewer's actual question - when it
+    // exists, that becomes the prompt shown to the reader (an invitation
+    // to answer the same question themselves), instead of anything
+    // synthesized. Narrative-only entries (no discrete question) fall
+    // back to an AI-written connecting note elsewhere.
+    const question = String(record.question || "").replace(/^Q:\s*/i, "").trim();
+    scored.push({
+      slug: record.slug,
+      chunkId: record.id || `${record.slug}-${scored.length}`,
+      title: record.title || "Interview voice",
+      question,
+      quote: clean.slice(0, 140) + (clean.length > 140 ? "..." : ""),
+      fullText: clean,
+      url: record.url || "#",
+      score: total,
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const perSlugCount = new Map();
+  const picked = [];
+  for (const match of scored) {
+    const count = perSlugCount.get(match.slug) || 0;
+    if (count >= MAX_MATCHES_PER_SLUG) {
+      continue;
+    }
+    perSlugCount.set(match.slug, count + 1);
+    picked.push(match);
+    if (picked.length >= MAX_MATCHES) {
+      break;
     }
   }
 
-  return [...bestBySlug.values()].sort((a, b) => b.score - a.score).slice(0, 8);
+  return picked;
+}
+
+// Every chunk belonging to one interview, in original order, for the
+// full-transcript reading panel.
+function getInterviewChunks(slug) {
+  return corpus
+    .filter((record) => record.slug === slug && !isJunkRecord(record))
+    .map((record) => ({
+      id: record.id,
+      question: String(record.question || "").replace(/^Q:\s*/i, "").trim(),
+      text: stripBoilerplate(record.text || record.answer || "").trim(),
+      order: (() => {
+        const match = /#qa-(\d+)/.exec(String(record.id || ""));
+        return match ? Number(match[1]) : 0;
+      })(),
+    }))
+    .sort((a, b) => a.order - b.order);
 }
 
 function renderUploads() {
@@ -342,67 +398,32 @@ function renderQuoteFeed(matches) {
 
   quoteFeed.hidden = false;
 
-  matches.slice(0, 8).forEach((match, index) => {
+  matches.forEach((match, index) => {
     const item = document.createElement("article");
     item.className = "quote-feed-item";
     item.dataset.matchIndex = String(index);
     item.setAttribute("role", "button");
     item.setAttribute("tabindex", "0");
-    // Staggered fade-in so the archive visibly "comes alive" in response
-    // to what was just written, rather than just snapping into place.
-    item.style.animationDelay = `${index * 70}ms`;
+    // Staggered fade-in, capped so a long list doesn't take forever to
+    // finish appearing - the archive visibly "comes alive" in response to
+    // what was just written, rather than just snapping into place.
+    item.style.animationDelay = `${Math.min(index, 10) * 55}ms`;
+
+    // Real interview questions are the prompt whenever one exists - they
+    // are literally what the archive is "asking", not something invented.
+    const promptHtml = match.question
+      ? `<p class="feed-prompt">They were asked: &ldquo;${escapeHtml(match.question)}&rdquo;</p>`
+      : "";
+
     item.innerHTML = `
       <h3>${escapeHtml(match.title)}</h3>
+      ${promptHtml}
       <p class="snippet">${escapeHtml(match.quote)}</p>
-      <div class="full-text">${escapeHtml(match.fullText)}</div>
-      <p class="feed-note" hidden></p>
-      <a class="feed-link" href="${match.url}" target="_blank" rel="noreferrer">Read the full interview</a>
+      <span class="feed-cta">Read the full interview &rarr;</span>
     `;
     quoteFeed.appendChild(item);
   });
 }
-
-function showNoteInItem(item, text) {
-  const noteEl = item.querySelector(".feed-note");
-  if (!noteEl) return;
-  noteEl.hidden = !text;
-  noteEl.textContent = text || "";
-  noteEl.classList.remove("is-loading");
-}
-
-async function toggleFeedItem(item, index) {
-  const isExpanded = item.classList.toggle("is-expanded");
-  if (!isExpanded) {
-    return;
-  }
-
-  const noteEl = item.querySelector(".feed-note");
-  const match = activeMatches[index];
-  if (!noteEl || !match) {
-    return;
-  }
-
-  if (feedNotes.has(index)) {
-    showNoteInItem(item, feedNotes.get(index));
-    return;
-  }
-
-  noteEl.hidden = false;
-  noteEl.classList.add("is-loading");
-  noteEl.textContent = "Looking for the connection...";
-
-  try {
-    const note = await fetchResonanceNote(match);
-    feedNotes.set(index, note);
-    showNoteInItem(item, note);
-  } catch (error) {
-    console.error("Could not fetch a resonance note:", error);
-    noteEl.hidden = true;
-  } finally {
-    noteEl.classList.remove("is-loading");
-  }
-}
-
 
 let autoMatchTimer = null;
 let lastMatchedText = "";
@@ -422,12 +443,19 @@ async function fetchResonanceNote(match) {
   return result.note || "";
 }
 
-// Spotlights the top match above the textbox - not as the AI asking the
-// person something, but as a caption pointing out a real connection
-// between an interviewee's own words and what was just written. The AI's
-// job here is to notice and narrate that connection, not to be the one
-// speaking.
+// Spotlights the top match above the textbox. A real interview question is
+// used whenever the match has one - it's literally the interviewee's own
+// question, an invitation to answer it too, not the AI inventing a
+// conversational turn. Only narrative-only excerpts (no discrete question)
+// fall back to an AI-written connecting note.
 async function spotlightTopMatch(match) {
+  if (match.question) {
+    continuePrompt.classList.remove("is-loading");
+    continuePrompt.classList.add("has-note");
+    continuePrompt.textContent = `${match.title} was asked: “${match.question}” - what's your own answer to that?`;
+    return;
+  }
+
   continuePrompt.classList.add("is-loading");
   continuePrompt.classList.remove("has-note");
   continuePrompt.textContent = "Looking for a connection in the archive...";
@@ -447,6 +475,116 @@ async function spotlightTopMatch(match) {
   } finally {
     continuePrompt.classList.remove("is-loading");
   }
+}
+
+let readerObserver = null;
+let currentReaderSlug = null;
+let currentReaderIndex = null;
+let notesSaveTimer = null;
+
+function renderReaderChunks(slug) {
+  const chunks = getInterviewChunks(slug);
+  readerBody.innerHTML = chunks
+    .map(
+      (chunk) => `
+        <section class="reader-chunk" data-chunk-id="${escapeHtml(chunk.id)}">
+          ${chunk.question ? `<p class="reader-question">They were asked: &ldquo;${escapeHtml(chunk.question)}&rdquo;</p>` : ""}
+          <p class="reader-answer">${escapeHtml(chunk.text)}</p>
+        </section>
+      `
+    )
+    .join("");
+  return chunks;
+}
+
+function setupReaderObserver(slug, chunks) {
+  if (readerObserver) {
+    readerObserver.disconnect();
+    readerObserver = null;
+  }
+  if (typeof IntersectionObserver !== "function") {
+    return;
+  }
+  readerObserver = new IntersectionObserver(
+    (entries) => {
+      const mostVisible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!mostVisible) return;
+      const chunk = chunks.find((c) => c.id === mostVisible.target.dataset.chunkId);
+      if (!chunk || !readerNotesHint) return;
+      readerNotesHint.textContent = chunk.question
+        ? `Reacting to: “${chunk.question}”`
+        : "What stands out to you here?";
+    },
+    { root: readerBody, threshold: [0.4, 0.6] }
+  );
+  readerBody.querySelectorAll(".reader-chunk").forEach((el) => readerObserver.observe(el));
+}
+
+function openReader(index) {
+  const match = activeMatches[index];
+  if (!match || !readerPanel) return;
+
+  currentReaderSlug = match.slug;
+  currentReaderIndex = index;
+
+  if (readerTitle) readerTitle.textContent = match.title;
+  if (readerSourceLink) readerSourceLink.href = match.url || "#";
+
+  const chunks = renderReaderChunks(match.slug);
+
+  if (readerNotesInput) {
+    readerNotesInput.value = (state.interviewNotes && state.interviewNotes[match.slug]) || "";
+  }
+  if (readerNotesHint) {
+    readerNotesHint.textContent = match.question ? `Reacting to: “${match.question}”` : "What stands out to you here?";
+  }
+
+  readerPanel.classList.add("is-open");
+  readerPanel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("reader-open");
+
+  const target = Array.from(readerBody.querySelectorAll(".reader-chunk")).find(
+    (el) => el.dataset.chunkId === match.chunkId
+  );
+  if (target && typeof target.scrollIntoView === "function") {
+    target.scrollIntoView({ block: "start" });
+    target.classList.add("is-highlighted");
+    setTimeout(() => target.classList.remove("is-highlighted"), 1600);
+  }
+
+  setupReaderObserver(match.slug, chunks);
+}
+
+function closeReader() {
+  if (!readerPanel) return;
+  readerPanel.classList.remove("is-open");
+  readerPanel.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("reader-open");
+  if (readerObserver) {
+    readerObserver.disconnect();
+    readerObserver = null;
+  }
+  currentReaderSlug = null;
+  currentReaderIndex = null;
+}
+
+function saveCurrentNote() {
+  if (!currentReaderSlug || !readerNotesInput) return;
+  state.interviewNotes = state.interviewNotes || {};
+  const value = readerNotesInput.value.trim();
+  if (value) {
+    state.interviewNotes[currentReaderSlug] = value;
+  } else {
+    delete state.interviewNotes[currentReaderSlug];
+  }
+  safeSetStorage(PROFILE_STORAGE_KEY, state);
+}
+
+function handleNotesInput() {
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(saveCurrentNote, 500);
 }
 
 function triggerMatch(text) {
@@ -556,23 +694,15 @@ function wireEvents() {
     if (!(target instanceof HTMLElement)) {
       return;
     }
-
-    // Let the "Read the full interview" link behave like a normal link
-    // instead of also toggling the card open/closed.
-    if (target.closest(".feed-link")) {
-      return;
-    }
-
     const item = target.closest(".quote-feed-item");
     if (!(item instanceof HTMLElement)) {
       return;
     }
-
     const index = Number.parseInt(item.dataset.matchIndex || "", 10);
     if (!Number.isInteger(index) || index < 0 || index >= activeMatches.length) {
       return;
     }
-    toggleFeedItem(item, index);
+    openReader(index);
   });
 
   quoteFeed.addEventListener("keydown", (event) => {
@@ -592,8 +722,44 @@ function wireEvents() {
     if (!Number.isInteger(index) || index < 0 || index >= activeMatches.length) {
       return;
     }
-    toggleFeedItem(item, index);
+    openReader(index);
   });
+
+  // The spotlight above the textbox points at a specific interview - make
+  // it open the same reader, so following the connection through feels
+  // like one continuous action.
+  if (continuePrompt) {
+    continuePrompt.addEventListener("click", () => {
+      if (activeMatches.length && continuePrompt.classList.contains("has-note")) {
+        openReader(0);
+      }
+    });
+  }
+
+  if (readerClose) {
+    readerClose.addEventListener("click", () => {
+      saveCurrentNote();
+      closeReader();
+    });
+  }
+
+  if (readerBackdrop) {
+    readerBackdrop.addEventListener("click", () => {
+      saveCurrentNote();
+      closeReader();
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && readerPanel && readerPanel.classList.contains("is-open")) {
+      saveCurrentNote();
+      closeReader();
+    }
+  });
+
+  if (readerNotesInput) {
+    readerNotesInput.addEventListener("input", handleNotesInput);
+  }
 
   letsGoButton.addEventListener("click", () => {
     const text = storyInput.value.trim();
@@ -615,6 +781,7 @@ async function initialize() {
   if (saved && typeof saved === "object") {
     state.text = String(saved.text || "");
     state.uploads = Array.isArray(saved.uploads) ? saved.uploads : [];
+    state.interviewNotes = saved.interviewNotes && typeof saved.interviewNotes === "object" ? saved.interviewNotes : {};
   }
 
   storyInput.value = state.text;

@@ -26,8 +26,11 @@ function safeSetStorage(key, payload) {
 
 // Small non-cryptographic hash so we can tell whether the cached reflection
 // still matches the story (and uploads) the user last left on the homepage.
-function hashInput(text, uploads) {
-  const source = `${text}::${(uploads || []).map((u) => u.name).join("|")}`;
+function hashInput(text, uploads, interviewNotes) {
+  const notesPart = Object.entries(interviewNotes || {})
+    .map(([slug, note]) => `${slug}=${note}`)
+    .join("|");
+  const source = `${text}::${(uploads || []).map((u) => u.name).join("|")}::${notesPart}`;
   let hash = 0;
   for (let i = 0; i < source.length; i += 1) {
     hash = (hash * 31 + source.charCodeAt(i)) | 0;
@@ -177,7 +180,11 @@ async function requestSynthesis(profile) {
   const response = await fetch("/api/ai-synthesize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: profile.text, uploads: profile.uploads || [] }),
+    body: JSON.stringify({
+      text: profile.text,
+      uploads: profile.uploads || [],
+      interviewNotes: profile.interviewNotes || {},
+    }),
   });
 
   if (!response.ok) {
@@ -212,7 +219,7 @@ function initialize() {
     return;
   }
 
-  const hash = hashInput(text, profile.uploads);
+  const hash = hashInput(text, profile.uploads, profile.interviewNotes);
   const cached = readStorage(ABOUT_STORAGE_KEY);
 
   const regenerateButton = document.getElementById("regenerateButton");
