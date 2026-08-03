@@ -14,8 +14,14 @@ const STOP_WORDS = new Set([
 ]);
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 const MAX_TEXT_CHARS = 20000;
 const TEXT_LIKE_EXTENSIONS = /\.(txt|md|markdown)$/i;
+const PDF_EXTENSION = /\.pdf$/i;
+const DOCX_EXTENSION = /\.docx$/i;
+
+const PDFJS_BASE = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/6.1.200/";
+const MAMMOTH_URL = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js";
 
 const storyInput = document.getElementById("storyInput");
 const dropZone = document.getElementById("dropZone");
@@ -173,11 +179,15 @@ function renderUploads() {
     const thumb = item.previewDataUrl
       ? `<img src="${item.previewDataUrl}" alt="" />`
       : `<div class="file-icon">${item.textExcerpt ? "TXT" : "DOC"}</div>`;
+    const note = item.extractionFailed
+      ? `<small class="upload-note">Couldn't read this file's text - it won't inform your reflection.</small>`
+      : "";
     chip.innerHTML = `
       ${thumb}
       <div class="file-meta">
         <p>${item.name}</p>
         <small>${Number.isFinite(item.size) ? `${(item.size / 1024).toFixed(1)} KB` : "Unknown size"}</small>
+        ${note}
       </div>
       <button type="button" data-file-id="${item.id}" aria-label="Remove ${item.name}">Remove</button>
     `;
@@ -203,6 +213,62 @@ function readFileAsText(file) {
   });
 }
 
+// pdf.js only ships as an ES module build on cdnjs, but dynamic import()
+// works fine from inside a plain (non-module) script like this one - no
+// need to load anything up front, or pay the cost, unless someone actually
+// uploads a PDF.
+let pdfjsLibPromise = null;
+function loadPdfjs() {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = import(`${PDFJS_BASE}pdf.min.mjs`).then((mod) => {
+      mod.GlobalWorkerOptions.workerSrc = `${PDFJS_BASE}pdf.worker.min.mjs`;
+      return mod;
+    });
+  }
+  return pdfjsLibPromise;
+}
+
+async function extractPdfText(file) {
+  const pdfjsLib = await loadPdfjs();
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const maxPages = Math.min(pdf.numPages, 20);
+  const parts = [];
+  for (let pageNum = 1; pageNum <= maxPages; pageNum += 1) {
+    const page = await pdf.getPage(pageNum);
+    const content = await page.getTextContent();
+    parts.push(content.items.map((item) => item.str || "").join(" "));
+  }
+  return parts.join("\n\n");
+}
+
+// mammoth.js only ships a classic (non-module) UMD build, so it's loaded
+// as a plain <script> tag the first time it's needed, rather than via
+// import().
+let mammothLoadPromise = null;
+function loadMammoth() {
+  if (window.mammoth) {
+    return Promise.resolve(window.mammoth);
+  }
+  if (!mammothLoadPromise) {
+    mammothLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = MAMMOTH_URL;
+      script.onload = () => resolve(window.mammoth);
+      script.onerror = () => reject(new Error("Could not load mammoth.js"));
+      document.head.appendChild(script);
+    });
+  }
+  return mammothLoadPromise;
+}
+
+async function extractDocxText(file) {
+  const mammoth = await loadMammoth();
+  const buffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+  return result.value || "";
+}
+
 async function toUploadRecord(file) {
   const record = {
     id: `${file.name}-${file.lastModified}-${Math.random().toString(16).slice(2, 8)}`,
@@ -220,9 +286,31 @@ async function toUploadRecord(file) {
     ) {
       const raw = await readFileAsText(file);
       record.textExcerpt = raw.slice(0, MAX_TEXT_CHARS);
+    } else if (
+      (file.type === "application/pdf" || PDF_EXTENSION.test(file.name)) &&
+      file.size <= MAX_DOCUMENT_BYTES
+    ) {
+      const raw = await extractPdfText(file);
+      if (raw.trim()) {
+        record.textExcerpt = raw.slice(0, MAX_TEXT_CHARS);
+      } else {
+        record.extractionFailed = true;
+      }
+    } else if (
+      (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        DOCX_EXTENSION.test(file.name)) &&
+      file.size <= MAX_DOCUMENT_BYTES
+    ) {
+      const raw = await extractDocxText(file);
+      if (raw.trim()) {
+        record.textExcerpt = raw.slice(0, MAX_TEXT_CHARS);
+      } else {
+        record.extractionFailed = true;
+      }
     }
   } catch (error) {
     console.error(`Could not read ${file.name}:`, error);
+    record.extractionFailed = true;
   }
 
   return record;

@@ -1010,6 +1010,12 @@ mark {
   color: var(--muted);
 }
 
+.upload-note {
+  display: block;
+  margin-top: 0.2rem;
+  color: #a15a3a;
+}
+
 .upload-chip button {
   width: auto;
   padding: 0.3rem 0.6rem;
