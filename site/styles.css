@@ -747,19 +747,12 @@ mark {
 
 .intake-stage {
   position: relative;
-  min-height: 140px;
+  min-height: 100px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding-top: 0.5rem;
-  transition: min-height 0.3s ease;
   margin-bottom: 0.4rem;
-  overflow: hidden;
-}
-
-.intake-stage.is-active {
-  min-height: 560px;
-  align-items: center;
 }
 
 .intake-panel .controls-row {
@@ -847,70 +840,83 @@ mark {
   color: var(--muted);
 }
 
-.quote-nodes {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  pointer-events: none;
+.quote-feed {
+  margin-top: 1.25rem;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  max-height: 460px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-right: 4px;
 }
 
-.quote-node {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 220px;
-  --r: 0deg;
-  transform: translate(-50%, -50%);
+.quote-feed-item {
   border: 1px solid var(--stroke);
   background: #fff;
-  padding: 0.6rem;
-  opacity: 0;
+  padding: 0.85rem 1rem;
   cursor: pointer;
-  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-  pointer-events: auto;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.intake-stage.is-active .quote-node {
-  animation: node-pop 520ms cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+.quote-feed-item:hover {
+  border-color: var(--brand);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
 }
 
-.quote-node h3 {
+.quote-feed-item h3 {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--brand);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
-.quote-node p {
+.quote-feed-item .snippet {
   margin: 0.35rem 0 0;
-  font-size: 0.86rem;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
-.quote-node:hover {
-  border-color: var(--brand);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.1);
-  transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(0deg) scale(1.04);
-  z-index: 2;
+.quote-feed-item .full-text {
+  display: none;
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
-@keyframes node-pop {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(0deg) scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r)) scale(1);
-  }
+.quote-feed-item.is-expanded .snippet {
+  display: none;
+}
+
+.quote-feed-item.is-expanded .full-text {
+  display: block;
+}
+
+.quote-feed-item .feed-question {
+  margin: 0.7rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--stroke);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.quote-feed-item .feed-question.is-loading {
+  color: var(--muted);
+}
+
+.quote-feed-item .feed-link {
+  display: none;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.quote-feed-item.is-expanded .feed-link {
+  display: inline-block;
 }
 
 .continue-prompt {
@@ -925,67 +931,6 @@ mark {
 
 .continue-prompt.is-loading {
   animation: skeleton-pulse 1.3s ease-in-out infinite;
-}
-
-.quote-popup {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.42);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 1rem;
-}
-
-.quote-popup.is-open {
-  display: flex;
-}
-
-.quote-popup-card {
-  width: min(760px, 96vw);
-  max-height: 88vh;
-  background: #fff;
-  border: 1px solid var(--stroke);
-  border-radius: 4px;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
-
-.quote-popup-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.8rem 0.9rem;
-  border-bottom: 1px solid var(--stroke);
-}
-
-.quote-popup-header h2 {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: normal;
-}
-
-.quote-popup-close {
-  width: auto;
-  background: #fff;
-  color: var(--text);
-  border: 1px solid var(--stroke);
-  padding: 0.15rem 0.55rem;
-  line-height: 1;
-  font-size: 1.2rem;
-}
-
-.quote-popup-body {
-  overflow: auto;
-  padding: 0.95rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
-.quote-popup-actions {
-  border-top: 1px solid var(--stroke);
-  padding: 0.75rem 0.9rem;
 }
 
 .guide-prompt {
@@ -1284,10 +1229,6 @@ mark {
     width: 96%;
   }
 
-  .intake-stage.is-active {
-    min-height: 560px;
-  }
-
   .go-row {
     flex-direction: column;
     align-items: stretch;
@@ -1301,8 +1242,8 @@ mark {
     align-self: flex-end;
   }
 
-  .quote-node {
-    width: min(220px, 56vw);
+  .quote-feed {
+    max-height: 340px;
   }
 }
 
@@ -1434,7 +1375,7 @@ mark {
 .drop-zone,
 .upload-chip,
 .upload-item,
-.quote-popup-card,
+.quote-feed-item,
 .idp-line,
 #query,
 select,
@@ -1447,14 +1388,6 @@ button,
   border-radius: 10px;
 }
 
-.quote-node {
-  border-radius: 12px;
-}
-
-.quote-popup-close {
-  border-radius: 999px;
-}
-
 .upload-chip img,
 .file-icon {
   border-radius: 8px;
@@ -1464,24 +1397,6 @@ button,
   color: var(--brand);
   text-decoration: underline;
   text-underline-offset: 2px;
-}
-
-.quote-popup-question {
-  margin: 0 0.95rem 0.5rem;
-  padding: 0.7rem 0 0;
-  border-top: 1px solid var(--stroke);
-  line-height: 1.55;
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 0.94rem;
-}
-
-.quote-popup-question:empty {
-  display: none;
-}
-
-.quote-popup-question.is-loading {
-  color: var(--muted);
 }
 
 /* ── About page: reflective schema ───────────────────────────────────────── */

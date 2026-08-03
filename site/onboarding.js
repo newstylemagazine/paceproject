@@ -24,14 +24,8 @@ const letsGoButton = document.getElementById("letsGoButton");
 const wordCount = document.getElementById("wordCount");
 const uploadTray = document.getElementById("uploadTray");
 const intakeStage = document.getElementById("intakeStage");
-const quoteNodes = document.getElementById("quoteNodes");
+const quoteFeed = document.getElementById("quoteFeed");
 const continuePrompt = document.getElementById("continuePrompt");
-const quotePopup = document.getElementById("quotePopup");
-const quotePopupTitle = document.getElementById("quotePopupTitle");
-const quotePopupBody = document.getElementById("quotePopupBody");
-const quotePopupQuestion = document.getElementById("quotePopupQuestion");
-const quotePopupLink = document.getElementById("quotePopupLink");
-const quotePopupClose = document.getElementById("quotePopupClose");
 
 let corpus = [];
 let state = {
@@ -39,6 +33,9 @@ let state = {
   uploads: [],
 };
 let activeMatches = [];
+// Per-item fetched questions, keyed by index into activeMatches. Cleared
+// every time activeMatches is replaced by a fresh render.
+let feedQuestions = new Map();
 
 function parseJsonLines(text) {
   return text
@@ -238,137 +235,83 @@ async function addFiles(fileList) {
   safeSetStorage(PROFILE_STORAGE_KEY, state);
 }
 
-function renderSpiderweb(matches) {
-  quoteNodes.innerHTML = "";
+function escapeHtml(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function renderQuoteFeed(matches) {
+  quoteFeed.innerHTML = "";
   activeMatches = matches;
+  feedQuestions = new Map();
+
   if (!matches.length) {
-    intakeStage.classList.remove("is-active");
-    continuePrompt.textContent = "No close quote matches yet. Add more detail, then press Go again.";
+    quoteFeed.hidden = true;
     return;
   }
 
-  const isMobile = window.innerWidth < 760;
-  const visibleMatches = matches.slice(0, isMobile ? 3 : 6);
-  const stageHalfWidth = Math.max(180, (intakeStage.clientWidth || 900) / 2);
-  const stageHalfHeight = Math.max(220, (intakeStage.clientHeight || 620) / 2);
-  const nodeWidth = isMobile ? Math.min(220, Math.max(150, Math.floor(stageHalfWidth * 0.9))) : 220;
-  const nodeHeight = isMobile ? 138 : 130;
-  const inputShell = intakeStage.querySelector(".write-surface");
-  const stageRect = intakeStage.getBoundingClientRect();
-  const shellRect = inputShell ? inputShell.getBoundingClientRect() : null;
-  const exclusionHalfX = shellRect ? shellRect.width / 2 + nodeWidth / 2 + 28 : 420;
-  const exclusionHalfY = shellRect ? shellRect.height / 2 + nodeHeight / 2 + 28 : 220;
-  const exclusionCenterX = shellRect
-    ? shellRect.left - stageRect.left + shellRect.width / 2 - stageRect.width / 2
-    : 0;
-  const exclusionCenterY = shellRect
-    ? shellRect.top - stageRect.top + shellRect.height / 2 - stageRect.height / 2
-    : 0;
+  quoteFeed.hidden = false;
 
-  function intersectsTextbox(point) {
-    const relX = point.x - exclusionCenterX;
-    const relY = point.y - exclusionCenterY;
-    return Math.abs(relX) < exclusionHalfX && Math.abs(relY) < exclusionHalfY;
-  }
-
-  function keepOutOfTextbox(point) {
-    const relX = point.x - exclusionCenterX;
-    const relY = point.y - exclusionCenterY;
-    if (Math.abs(relX) < exclusionHalfX && Math.abs(relY) < exclusionHalfY) {
-      const pushX = exclusionHalfX - Math.abs(relX) + 12;
-      const pushY = exclusionHalfY - Math.abs(relY) + 12;
-      if (pushX < pushY) {
-        point.x += Math.sign(relX || (Math.random() > 0.5 ? 1 : -1)) * pushX;
-      } else {
-        point.y += Math.sign(relY || (Math.random() > 0.5 ? 1 : -1)) * pushY;
-      }
-    }
-  }
-
-  // Radii scale to the actual space available instead of fixed pixel
-  // constants, so the rings still fit (and don't pile up on each other)
-  // whichever way the stage ends up being sized.
-  const usableHalf = Math.min(stageHalfWidth, stageHalfHeight);
-  const nodeHalf = Math.max(nodeWidth, nodeHeight) / 2;
-  const outerRadius = Math.max(nodeHalf + 40, usableHalf - nodeHalf - 12);
-  const innerRadius = Math.max(nodeHalf + 20, outerRadius * 0.58);
-
-  const points = visibleMatches.map((_, index) => {
-    const ring = index < 3 ? 0 : 1;
-    const ringSlots = ring === 0 ? Math.min(3, visibleMatches.length) : Math.max(1, visibleMatches.length - 3);
-    const slotIndex = ring === 0 ? index : index - 3;
-    const radius = ring === 0 ? innerRadius : outerRadius;
-    const angleOffset = ring === 0 ? 0 : Math.PI / Math.max(1, ringSlots);
-    const angle = (Math.PI * 2 * slotIndex) / ringSlots + angleOffset;
-    return {
-      x: Math.cos(angle) * radius,
-      y: Math.sin(angle) * radius,
-    };
-  });
-
-  const maxX = stageHalfWidth - nodeWidth / 2 - 10;
-  const maxY = stageHalfHeight - nodeHeight / 2 - 10;
-
-  for (let iter = 0; iter < 120; iter += 1) {
-    for (let i = 0; i < points.length; i += 1) {
-      for (let j = i + 1; j < points.length; j += 1) {
-        const dx = points[j].x - points[i].x;
-        const dy = points[j].y - points[i].y;
-        const overlapX = nodeWidth - Math.abs(dx);
-        const overlapY = nodeHeight - Math.abs(dy);
-
-        if (overlapX > 0 && overlapY > 0) {
-          const pushX = (overlapX / 2 + 3) * (dx === 0 ? (Math.random() > 0.5 ? 1 : -1) : Math.sign(dx));
-          const pushY = (overlapY / 2 + 3) * (dy === 0 ? (Math.random() > 0.5 ? 1 : -1) : Math.sign(dy));
-          points[i].x -= pushX;
-          points[j].x += pushX;
-          points[i].y -= pushY;
-          points[j].y += pushY;
-        }
-      }
-    }
-
-    for (const point of points) {
-      keepOutOfTextbox(point);
-      point.x = Math.max(-maxX, Math.min(maxX, point.x));
-      point.y = Math.max(-maxY, Math.min(maxY, point.y));
-      keepOutOfTextbox(point);
-    }
-  }
-
-  for (const point of points) {
-    keepOutOfTextbox(point);
-    point.x = Math.max(-maxX, Math.min(maxX, point.x));
-    point.y = Math.max(-maxY, Math.min(maxY, point.y));
-  }
-
-  visibleMatches.forEach((match, index) => {
-    const x = points[index].x;
-    const y = points[index].y;
-
-    if (intersectsTextbox({ x, y })) {
-      return;
-    }
-
-    const node = document.createElement("article");
-    node.className = "quote-node";
-    node.dataset.matchIndex = String(index);
-    node.style.width = `${nodeWidth}px`;
-    node.style.minHeight = `${nodeHeight}px`;
-    node.style.setProperty("--x", `${x}px`);
-    node.style.setProperty("--y", `${y}px`);
-    node.style.setProperty("--r", `${(Math.random() * 6 - 3).toFixed(2)}deg`);
-    node.style.animationDelay = `${index * 60}ms`;
-    node.innerHTML = `
-      <h3>${match.title}</h3>
-      <p>${match.quote}</p>
+  matches.slice(0, 8).forEach((match, index) => {
+    const item = document.createElement("article");
+    item.className = "quote-feed-item";
+    item.dataset.matchIndex = String(index);
+    item.setAttribute("role", "button");
+    item.setAttribute("tabindex", "0");
+    item.innerHTML = `
+      <h3>${escapeHtml(match.title)}</h3>
+      <p class="snippet">${escapeHtml(match.quote)}</p>
+      <div class="full-text">${escapeHtml(match.fullText)}</div>
+      <p class="feed-question" hidden></p>
+      <a class="feed-link" href="${match.url}" target="_blank" rel="noreferrer">Read the full interview</a>
     `;
-    quoteNodes.appendChild(node);
+    quoteFeed.appendChild(item);
   });
-
-  intakeStage.classList.add("is-active");
-  continuePrompt.textContent = "Click a voice to get a question based on their story, then keep writing in response.";
 }
+
+async function toggleFeedItem(item, index) {
+  const isExpanded = item.classList.toggle("is-expanded");
+  if (!isExpanded) {
+    return;
+  }
+
+  const questionEl = item.querySelector(".feed-question");
+  const match = activeMatches[index];
+  if (!questionEl || !match) {
+    return;
+  }
+
+  if (feedQuestions.has(index)) {
+    questionEl.hidden = false;
+    questionEl.textContent = feedQuestions.get(index);
+    return;
+  }
+
+  questionEl.hidden = false;
+  questionEl.classList.add("is-loading");
+  questionEl.textContent = "Thinking of a question worth asking...";
+
+  try {
+    const question = await fetchQuestion(match);
+    const text = question || "";
+    feedQuestions.set(index, text);
+    questionEl.textContent = text;
+    questionEl.hidden = !text;
+  } catch (error) {
+    console.error("Could not fetch a question:", error);
+    questionEl.hidden = true;
+  } finally {
+    questionEl.classList.remove("is-loading");
+  }
+}
+
+
+let autoMatchTimer = null;
+let lastMatchedText = "";
+const AUTO_MATCH_IDLE_MS = 1400;
+const AUTO_MATCH_MIN_WORDS = 6;
 
 async function fetchQuestion(match) {
   const response = await fetch("/api/ai-question", {
@@ -390,51 +333,15 @@ async function askAboutTopMatch(match) {
   try {
     const question = await fetchQuestion(match);
     continuePrompt.textContent = question
-      ? `${match.title}: “${question}”`
-      : "Click a voice to get a question based on their story, then keep writing in response.";
+      ? `${match.title} asked something close to this: “${question}” Keep writing and I'll follow up again.`
+      : "Keep writing - new questions will show up here as you go.";
   } catch (error) {
     console.error("Could not fetch a question:", error);
-    continuePrompt.textContent = "Click a voice to get a question based on their story, then keep writing in response.";
+    continuePrompt.textContent = "Keep writing - new questions will show up here as you go.";
   } finally {
     continuePrompt.classList.remove("is-loading");
   }
 }
-
-async function openQuotePopup(match) {
-  if (!quotePopup || !quotePopupTitle || !quotePopupBody || !quotePopupLink) {
-    return;
-  }
-
-  quotePopupTitle.textContent = match.title || "Interview voice";
-  quotePopupBody.textContent = match.fullText || match.quote || "No additional text available.";
-  quotePopupLink.href = match.url || "#";
-  quotePopupQuestion.textContent = "Thinking of a question worth asking...";
-  quotePopupQuestion.classList.add("is-loading");
-  quotePopup.classList.add("is-open");
-  quotePopup.setAttribute("aria-hidden", "false");
-
-  try {
-    quotePopupQuestion.textContent = await fetchQuestion(match);
-  } catch (error) {
-    console.error("Could not fetch a question:", error);
-    quotePopupQuestion.textContent = "";
-  } finally {
-    quotePopupQuestion.classList.remove("is-loading");
-  }
-}
-
-function closeQuotePopup() {
-  if (!quotePopup) {
-    return;
-  }
-  quotePopup.classList.remove("is-open");
-  quotePopup.setAttribute("aria-hidden", "true");
-}
-
-let autoMatchTimer = null;
-let lastMatchedText = "";
-const AUTO_MATCH_IDLE_MS = 1400;
-const AUTO_MATCH_MIN_WORDS = 6;
 
 function triggerMatch(text) {
   const trimmed = text.trim();
@@ -443,9 +350,12 @@ function triggerMatch(text) {
   }
   lastMatchedText = trimmed;
   const matches = buildMatches(trimmed, state.uploads);
-  renderSpiderweb(matches);
+  renderQuoteFeed(matches);
   if (matches.length) {
     askAboutTopMatch(matches[0]);
+  } else {
+    continuePrompt.classList.remove("is-loading");
+    continuePrompt.textContent = "No close quote matches yet. Add more detail, then keep writing.";
   }
 }
 
@@ -535,35 +445,49 @@ function wireEvents() {
     });
   }
 
-  quoteNodes.addEventListener("click", (event) => {
+  quoteFeed.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
-    const node = target.closest(".quote-node");
-    if (!(node instanceof HTMLElement)) {
+    // Let the "Read the full interview" link behave like a normal link
+    // instead of also toggling the card open/closed.
+    if (target.closest(".feed-link")) {
       return;
     }
 
-    const index = Number.parseInt(node.dataset.matchIndex || "", 10);
+    const item = target.closest(".quote-feed-item");
+    if (!(item instanceof HTMLElement)) {
+      return;
+    }
+
+    const index = Number.parseInt(item.dataset.matchIndex || "", 10);
     if (!Number.isInteger(index) || index < 0 || index >= activeMatches.length) {
       return;
     }
-    openQuotePopup(activeMatches[index]);
+    toggleFeedItem(item, index);
   });
 
-  if (quotePopupClose) {
-    quotePopupClose.addEventListener("click", closeQuotePopup);
-  }
-
-  if (quotePopup) {
-    quotePopup.addEventListener("click", (event) => {
-      if (event.target === quotePopup) {
-        closeQuotePopup();
-      }
-    });
-  }
+  quoteFeed.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const item = target.closest(".quote-feed-item");
+    if (!(item instanceof HTMLElement)) {
+      return;
+    }
+    event.preventDefault();
+    const index = Number.parseInt(item.dataset.matchIndex || "", 10);
+    if (!Number.isInteger(index) || index < 0 || index >= activeMatches.length) {
+      return;
+    }
+    toggleFeedItem(item, index);
+  });
 
   letsGoButton.addEventListener("click", () => {
     const text = storyInput.value.trim();
