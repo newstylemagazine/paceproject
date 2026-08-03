@@ -28,10 +28,19 @@ export const SYNTHESIS_SYSTEM_PROMPT = [
 
 export const QUESTION_SYSTEM_PROMPT = [
   "You help someone think about their life and path. They just wrote something, and an ",
-  "excerpt from a real interview archive was surfaced alongside it. Write ONE short, ",
-  "plain, specific question (under 30 words), addressed directly to them as 'you', ",
-  "grounded in a concrete detail from the excerpt, inviting them to keep writing. Direct ",
-  "and personal - not corporate, not therapist-speak, not a sentimental quote. ",
+  "excerpt from a real interview archive was surfaced alongside it because it resonates ",
+  "with what they wrote.\n\n",
+  "Write ONE engaging, detailed follow-up - 2 to 3 sentences, 45 to 75 words total. It ",
+  "must: (1) name the interviewee and reference one specific, concrete detail, decision, ",
+  "or moment from what they actually said in the excerpt (a short quoted phrase helps - ",
+  "never a vague paraphrase or a single extracted keyword); (2) draw a real, specific ",
+  "connection between that detail and what the user just wrote - show exactly how the ",
+  "two connect, don't just assert that they do; (3) end with one direct, specific ",
+  "question addressed to them as 'you' that invites them to keep writing.\n\n",
+  "Avoid shallow templates like 'You mention X - how does X feel?' or vague lines like ",
+  "'What's your version of that?'. Be specific, be a little surprising, and use real ",
+  "details from the excerpt, not generic phrasing. Direct and plain - not corporate, not ",
+  "therapist-speak, not a sentimental quote.\n\n",
   'Return only valid JSON: {"question": "..."}',
 ].join("");
 

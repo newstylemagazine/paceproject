@@ -33,13 +33,14 @@ export function fallbackAboutPayload(text, recommendations) {
 }
 
 export function fallbackQuestion(excerptTitle, excerptText) {
-  // Callers already show the excerpt's title separately (either as a
-  // heading, or prefixed onto this string themselves) - embedding it again
-  // here produced doubled, garbled-looking text like
-  // "Name, Title: "Name, Title said: ..."". Keep this self-contained.
-  const clipped = (excerptText || "").replace(/\s+/g, " ").trim().slice(0, 140);
+  // Callers no longer wrap this in their own "X said: ..." framing, so it's
+  // safe (and better - the user asked for questions to reference the
+  // transcripts more) to name the interviewee once, here, ourselves.
+  const clipped = (excerptText || "").replace(/\s+/g, " ").trim().slice(0, 160);
+  const name = String(excerptTitle || "").split(",")[0].trim();
   if (!clipped) {
-    return "What made this voice worth pausing on?";
+    return name ? `What made ${name}'s story worth pausing on for you?` : "What made this voice worth pausing on?";
   }
-  return `They said: "${clipped}..." What's your version of that?`;
+  const who = name || "One person in the archive";
+  return `${who} described this: "${clipped}..." What part of your own situation does that actually touch on?`;
 }

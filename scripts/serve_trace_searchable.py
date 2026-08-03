@@ -61,10 +61,19 @@ SYNTHESIS_SYSTEM_PROMPT = (
 
 QUESTION_SYSTEM_PROMPT = (
     "You help someone think about their life and path. They just wrote something, and an "
-    "excerpt from a real interview archive was surfaced alongside it. Write ONE short, "
-    "plain, specific question (under 30 words), addressed directly to them as 'you', "
-    "grounded in a concrete detail from the excerpt, inviting them to keep writing. Direct "
-    "and personal - not corporate, not therapist-speak, not a sentimental quote. "
+    "excerpt from a real interview archive was surfaced alongside it because it resonates "
+    "with what they wrote.\n\n"
+    "Write ONE engaging, detailed follow-up - 2 to 3 sentences, 45 to 75 words total. It "
+    "must: (1) name the interviewee and reference one specific, concrete detail, decision, "
+    "or moment from what they actually said in the excerpt (a short quoted phrase helps - "
+    "never a vague paraphrase or a single extracted keyword); (2) draw a real, specific "
+    "connection between that detail and what the user just wrote - show exactly how the "
+    "two connect, don't just assert that they do; (3) end with one direct, specific "
+    "question addressed to them as 'you' that invites them to keep writing.\n\n"
+    "Avoid shallow templates like 'You mention X - how does X feel?' or vague lines like "
+    "'What's your version of that?'. Be specific, be a little surprising, and use real "
+    "details from the excerpt, not generic phrasing. Direct and plain - not corporate, not "
+    "therapist-speak, not a sentimental quote.\n\n"
     'Return only valid JSON: {"question": "..."}'
 )
 
@@ -442,14 +451,15 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def fallback_question(excerpt_title: str, excerpt_text: str) -> str:
-    # Callers already show the excerpt's title separately (heading or their
-    # own prefix) - embedding it again here produced doubled, garbled text
-    # like 'Name, Title: "Name, Title said: ..."'. Keep this self-contained.
-    del excerpt_title
-    clipped = re.sub(r"\s+", " ", excerpt_text or "").strip()[:140]
+    # Callers no longer wrap this in their own "X said: ..." framing, so
+    # it's safe (and better - questions should reference the transcripts
+    # more) to name the interviewee once, here, ourselves.
+    clipped = re.sub(r"\s+", " ", excerpt_text or "").strip()[:160]
+    name = str(excerpt_title or "").split(",")[0].strip()
     if not clipped:
-        return "What made this voice worth pausing on?"
-    return f'They said: "{clipped}..." What\'s your version of that?'
+        return f"What made {name}'s story worth pausing on for you?" if name else "What made this voice worth pausing on?"
+    who = name or "One person in the archive"
+    return f'{who} described this: "{clipped}..." What part of your own situation does that actually touch on?'
 
 
 def ask_question(payload: dict[str, Any]) -> dict[str, Any]:

@@ -930,9 +930,10 @@ mark {
 
 .continue-prompt.has-question {
   color: var(--text);
-  font-size: 1.2rem;
+  font-size: 1.08rem;
   font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
-  line-height: 1.4;
+  line-height: 1.5;
+  max-width: 680px;
 }
 
 .continue-prompt.is-loading {
