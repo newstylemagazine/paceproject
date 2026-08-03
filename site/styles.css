@@ -859,6 +859,19 @@ mark {
   padding: 0.85rem 1rem;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  opacity: 0;
+  animation: feed-item-in 420ms ease forwards;
+}
+
+@keyframes feed-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .quote-feed-item:hover {
@@ -895,7 +908,7 @@ mark {
   display: block;
 }
 
-.quote-feed-item .feed-question {
+.quote-feed-item .feed-note {
   margin: 0.7rem 0 0;
   padding-top: 0.6rem;
   border-top: 1px solid var(--stroke);
@@ -905,7 +918,7 @@ mark {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
-.quote-feed-item .feed-question.is-loading {
+.quote-feed-item .feed-note.is-loading {
   color: var(--muted);
 }
 
@@ -928,7 +941,7 @@ mark {
   transition: color 0.2s ease, font-size 0.2s ease;
 }
 
-.continue-prompt.has-question {
+.continue-prompt.has-note {
   color: var(--text);
   font-size: 1.08rem;
   font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
@@ -1377,6 +1390,10 @@ mark {
   .skeleton-line,
   .skeleton-block {
     animation: none;
+  }
+  .quote-feed-item {
+    animation: none;
+    opacity: 1;
   }
 }
 

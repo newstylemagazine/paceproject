@@ -41,7 +41,7 @@ let state = {
 let activeMatches = [];
 // Per-item fetched questions, keyed by index into activeMatches. Cleared
 // every time activeMatches is replaced by a fresh render.
-let feedQuestions = new Map();
+let feedNotes = new Map();
 
 function parseJsonLines(text) {
   return text
@@ -333,7 +333,7 @@ function escapeHtml(text) {
 function renderQuoteFeed(matches) {
   quoteFeed.innerHTML = "";
   activeMatches = matches;
-  feedQuestions = new Map();
+  feedNotes = new Map();
 
   if (!matches.length) {
     quoteFeed.hidden = true;
@@ -348,15 +348,26 @@ function renderQuoteFeed(matches) {
     item.dataset.matchIndex = String(index);
     item.setAttribute("role", "button");
     item.setAttribute("tabindex", "0");
+    // Staggered fade-in so the archive visibly "comes alive" in response
+    // to what was just written, rather than just snapping into place.
+    item.style.animationDelay = `${index * 70}ms`;
     item.innerHTML = `
       <h3>${escapeHtml(match.title)}</h3>
       <p class="snippet">${escapeHtml(match.quote)}</p>
       <div class="full-text">${escapeHtml(match.fullText)}</div>
-      <p class="feed-question" hidden></p>
+      <p class="feed-note" hidden></p>
       <a class="feed-link" href="${match.url}" target="_blank" rel="noreferrer">Read the full interview</a>
     `;
     quoteFeed.appendChild(item);
   });
+}
+
+function showNoteInItem(item, text) {
+  const noteEl = item.querySelector(".feed-note");
+  if (!noteEl) return;
+  noteEl.hidden = !text;
+  noteEl.textContent = text || "";
+  noteEl.classList.remove("is-loading");
 }
 
 async function toggleFeedItem(item, index) {
@@ -365,33 +376,30 @@ async function toggleFeedItem(item, index) {
     return;
   }
 
-  const questionEl = item.querySelector(".feed-question");
+  const noteEl = item.querySelector(".feed-note");
   const match = activeMatches[index];
-  if (!questionEl || !match) {
+  if (!noteEl || !match) {
     return;
   }
 
-  if (feedQuestions.has(index)) {
-    questionEl.hidden = false;
-    questionEl.textContent = feedQuestions.get(index);
+  if (feedNotes.has(index)) {
+    showNoteInItem(item, feedNotes.get(index));
     return;
   }
 
-  questionEl.hidden = false;
-  questionEl.classList.add("is-loading");
-  questionEl.textContent = "Thinking of a question worth asking...";
+  noteEl.hidden = false;
+  noteEl.classList.add("is-loading");
+  noteEl.textContent = "Looking for the connection...";
 
   try {
-    const question = await fetchQuestion(match);
-    const text = question || "";
-    feedQuestions.set(index, text);
-    questionEl.textContent = text;
-    questionEl.hidden = !text;
+    const note = await fetchResonanceNote(match);
+    feedNotes.set(index, note);
+    showNoteInItem(item, note);
   } catch (error) {
-    console.error("Could not fetch a question:", error);
-    questionEl.hidden = true;
+    console.error("Could not fetch a resonance note:", error);
+    noteEl.hidden = true;
   } finally {
-    questionEl.classList.remove("is-loading");
+    noteEl.classList.remove("is-loading");
   }
 }
 
@@ -401,7 +409,7 @@ let lastMatchedText = "";
 const AUTO_MATCH_IDLE_MS = 1400;
 const AUTO_MATCH_MIN_WORDS = 6;
 
-async function fetchQuestion(match) {
+async function fetchResonanceNote(match) {
   const response = await fetch("/api/ai-question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -411,25 +419,31 @@ async function fetchQuestion(match) {
     throw new Error(`Server responded ${response.status}`);
   }
   const result = await response.json();
-  return result.question || "";
+  return result.note || "";
 }
 
-async function askAboutTopMatch(match) {
+// Spotlights the top match above the textbox - not as the AI asking the
+// person something, but as a caption pointing out a real connection
+// between an interviewee's own words and what was just written. The AI's
+// job here is to notice and narrate that connection, not to be the one
+// speaking.
+async function spotlightTopMatch(match) {
   continuePrompt.classList.add("is-loading");
-  continuePrompt.classList.remove("has-question");
-  continuePrompt.textContent = "Thinking of something to ask...";
+  continuePrompt.classList.remove("has-note");
+  continuePrompt.textContent = "Looking for a connection in the archive...";
 
   try {
-    const question = await fetchQuestion(match);
-    if (question) {
-      continuePrompt.textContent = question;
-      continuePrompt.classList.add("has-question");
+    const note = await fetchResonanceNote(match);
+    feedNotes.set(0, note);
+    if (note) {
+      continuePrompt.textContent = note;
+      continuePrompt.classList.add("has-note");
     } else {
-      continuePrompt.textContent = "Keep writing - I'll ask you something as you go.";
+      continuePrompt.textContent = "Keep writing - related voices will surface below.";
     }
   } catch (error) {
-    console.error("Could not fetch a question:", error);
-    continuePrompt.textContent = "Keep writing - I'll ask you something as you go.";
+    console.error("Could not fetch a resonance note:", error);
+    continuePrompt.textContent = "Keep writing - related voices will surface below.";
   } finally {
     continuePrompt.classList.remove("is-loading");
   }
@@ -444,10 +458,10 @@ function triggerMatch(text) {
   const matches = buildMatches(trimmed, state.uploads);
   renderQuoteFeed(matches);
   if (matches.length) {
-    askAboutTopMatch(matches[0]);
+    spotlightTopMatch(matches[0]);
   } else {
-    continuePrompt.classList.remove("is-loading", "has-question");
-    continuePrompt.textContent = "Keep writing - a few more specific details will surface a question.";
+    continuePrompt.classList.remove("is-loading", "has-note");
+    continuePrompt.textContent = "No close matches yet - keep writing and the archive will respond.";
   }
 }
 
@@ -584,7 +598,7 @@ function wireEvents() {
   letsGoButton.addEventListener("click", () => {
     const text = storyInput.value.trim();
     if (!text) {
-      continuePrompt.classList.remove("has-question", "is-loading");
+      continuePrompt.classList.remove("has-note", "is-loading");
       continuePrompt.textContent = "Write a few honest lines first, then press Go.";
       storyInput.focus();
       return;

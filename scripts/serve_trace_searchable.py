@@ -59,22 +59,27 @@ SYNTHESIS_SYSTEM_PROMPT = (
     "path without prescribing one. Not an inspirational quote."
 )
 
-QUESTION_SYSTEM_PROMPT = (
-    "You help someone think about their life and path. They just wrote something, and an "
-    "excerpt from a real interview archive was surfaced alongside it because it resonates "
-    "with what they wrote.\n\n"
-    "Write ONE engaging, detailed follow-up - 2 to 3 sentences, 45 to 75 words total. It "
-    "must: (1) name the interviewee and reference one specific, concrete detail, decision, "
-    "or moment from what they actually said in the excerpt (a short quoted phrase helps - "
-    "never a vague paraphrase or a single extracted keyword); (2) draw a real, specific "
-    "connection between that detail and what the user just wrote - show exactly how the "
-    "two connect, don't just assert that they do; (3) end with one direct, specific "
-    "question addressed to them as 'you' that invites them to keep writing.\n\n"
-    "Avoid shallow templates like 'You mention X - how does X feel?' or vague lines like "
-    "'What's your version of that?'. Be specific, be a little surprising, and use real "
-    "details from the excerpt, not generic phrasing. Direct and plain - not corporate, not "
-    "therapist-speak, not a sentimental quote.\n\n"
-    'Return only valid JSON: {"question": "..."}'
+# The site's premise is a conversation between the person writing and the
+# interviewees in the archive - the model's job is to notice and narrate a
+# real connection between the two, not to become a conversational partner
+# itself. It should read like a narrator pointing at a resonance, never
+# like someone addressing the reader directly.
+RESONANCE_SYSTEM_PROMPT = (
+    "Someone is writing about their life and path. An excerpt from a real interview archive "
+    "was surfaced alongside what they wrote because it resonates.\n\n"
+    "Write ONE short, specific, third-person note - 2 sentences, 35 to 60 words total - that "
+    "stays focused on the INTERVIEWEE, not the person writing. It must: (1) name the "
+    "interviewee and reference one specific, concrete detail, decision, or moment from what "
+    "they actually said (a short quoted phrase helps - never a vague paraphrase or a single "
+    "extracted keyword); (2) point out, as an observer, exactly how that detail connects to "
+    "what the person just wrote - show the connection concretely, don't just assert it "
+    "exists.\n\n"
+    "Do not use the word 'you'. Do not ask a question. Do not address the reader directly or "
+    "speak as if having a conversation with them - narrate the resonance between two lives "
+    "from the outside, the way a documentary caption would.\n\n"
+    "Avoid shallow templates and generic phrasing. Be specific and grounded in real details. "
+    "Plain and direct - not corporate, not therapist-speak, not a sentimental quote.\n\n"
+    'Return only valid JSON: {"note": "..."}'
 )
 
 IMAGE_DESCRIPTION_PROMPT = (
@@ -450,16 +455,15 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def fallback_question(excerpt_title: str, excerpt_text: str) -> str:
-    # Callers no longer wrap this in their own "X said: ..." framing, so
-    # it's safe (and better - questions should reference the transcripts
-    # more) to name the interviewee once, here, ourselves.
+def fallback_resonance_note(excerpt_title: str, excerpt_text: str) -> str:
+    # Third-person, no "you", no question - stays about the interviewee,
+    # the way the real AI-generated note does. Rule-based safety net only.
     clipped = re.sub(r"\s+", " ", excerpt_text or "").strip()[:160]
     name = str(excerpt_title or "").split(",")[0].strip()
+    who = name or "One voice in the archive"
     if not clipped:
-        return f"What made {name}'s story worth pausing on for you?" if name else "What made this voice worth pausing on?"
-    who = name or "One person in the archive"
-    return f'{who} described this: "{clipped}..." What part of your own situation does that actually touch on?'
+        return f"{who}'s story sits close to what was just written."
+    return f'{who} described this: "{clipped}..." - a detail that sits close to what was just written.'
 
 
 def ask_question(payload: dict[str, Any]) -> dict[str, Any]:
@@ -476,17 +480,17 @@ def ask_question(payload: dict[str, Any]) -> dict[str, Any]:
 
     result = call_text_provider(
         [
-            {"role": "system", "content": QUESTION_SYSTEM_PROMPT},
+            {"role": "system", "content": RESONANCE_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps(user_payload)},
         ]
     )
 
     if result:
         _provider_name, parsed = result
-        if isinstance(parsed, dict) and parsed.get("question"):
-            return {"question": str(parsed["question"]), "source": _provider_name}
+        if isinstance(parsed, dict) and parsed.get("note"):
+            return {"note": str(parsed["note"]), "source": _provider_name}
 
-    return {"question": fallback_question(excerpt_title, excerpt_text), "source": "fallback"}
+    return {"note": fallback_resonance_note(excerpt_title, excerpt_text), "source": "fallback"}
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

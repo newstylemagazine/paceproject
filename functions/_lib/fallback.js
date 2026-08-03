@@ -32,15 +32,15 @@ export function fallbackAboutPayload(text, recommendations) {
   };
 }
 
-export function fallbackQuestion(excerptTitle, excerptText) {
-  // Callers no longer wrap this in their own "X said: ..." framing, so it's
-  // safe (and better - the user asked for questions to reference the
-  // transcripts more) to name the interviewee once, here, ourselves.
+export function fallbackResonanceNote(excerptTitle, excerptText) {
+  // Third-person, no "you", no question - stays about the interviewee, the
+  // way the real AI-generated note does. This is only the rule-based
+  // safety net for when no AI provider is reachable.
   const clipped = (excerptText || "").replace(/\s+/g, " ").trim().slice(0, 160);
   const name = String(excerptTitle || "").split(",")[0].trim();
+  const who = name || "One voice in the archive";
   if (!clipped) {
-    return name ? `What made ${name}'s story worth pausing on for you?` : "What made this voice worth pausing on?";
+    return `${who}'s story sits close to what was just written.`;
   }
-  const who = name || "One person in the archive";
-  return `${who} described this: "${clipped}..." What part of your own situation does that actually touch on?`;
+  return `${who} described this: "${clipped}..." - a detail that sits close to what was just written.`;
 }

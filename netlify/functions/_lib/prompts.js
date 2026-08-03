@@ -26,22 +26,27 @@ export const SYNTHESIS_SYSTEM_PROMPT = [
   "path without prescribing one. Not an inspirational quote.",
 ].join("");
 
-export const QUESTION_SYSTEM_PROMPT = [
-  "You help someone think about their life and path. They just wrote something, and an ",
-  "excerpt from a real interview archive was surfaced alongside it because it resonates ",
-  "with what they wrote.\n\n",
-  "Write ONE engaging, detailed follow-up - 2 to 3 sentences, 45 to 75 words total. It ",
-  "must: (1) name the interviewee and reference one specific, concrete detail, decision, ",
-  "or moment from what they actually said in the excerpt (a short quoted phrase helps - ",
-  "never a vague paraphrase or a single extracted keyword); (2) draw a real, specific ",
-  "connection between that detail and what the user just wrote - show exactly how the ",
-  "two connect, don't just assert that they do; (3) end with one direct, specific ",
-  "question addressed to them as 'you' that invites them to keep writing.\n\n",
-  "Avoid shallow templates like 'You mention X - how does X feel?' or vague lines like ",
-  "'What's your version of that?'. Be specific, be a little surprising, and use real ",
-  "details from the excerpt, not generic phrasing. Direct and plain - not corporate, not ",
-  "therapist-speak, not a sentimental quote.\n\n",
-  'Return only valid JSON: {"question": "..."}',
+// The site's premise is a conversation between the person writing and the
+// interviewees in the archive - the model's job is to notice and narrate a
+// real connection between the two, not to become a conversational partner
+// itself. It should read like a narrator pointing at a resonance, never
+// like someone addressing the reader directly.
+export const RESONANCE_SYSTEM_PROMPT = [
+  "Someone is writing about their life and path. An excerpt from a real interview archive ",
+  "was surfaced alongside what they wrote because it resonates.\n\n",
+  "Write ONE short, specific, third-person note - 2 sentences, 35 to 60 words total - that ",
+  "stays focused on the INTERVIEWEE, not the person writing. It must: (1) name the ",
+  "interviewee and reference one specific, concrete detail, decision, or moment from what ",
+  "they actually said (a short quoted phrase helps - never a vague paraphrase or a single ",
+  "extracted keyword); (2) point out, as an observer, exactly how that detail connects to ",
+  "what the person just wrote - show the connection concretely, don't just assert it ",
+  "exists.\n\n",
+  "Do not use the word 'you'. Do not ask a question. Do not address the reader directly or ",
+  "speak as if having a conversation with them - narrate the resonance between two lives ",
+  "from the outside, the way a documentary caption would.\n\n",
+  "Avoid shallow templates and generic phrasing. Be specific and grounded in real details. ",
+  "Plain and direct - not corporate, not therapist-speak, not a sentimental quote.\n\n",
+  'Return only valid JSON: {"note": "..."}',
 ].join("");
 
 export const IMAGE_DESCRIPTION_PROMPT = [
