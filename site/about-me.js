@@ -27,8 +27,20 @@ function safeSetStorage(key, payload) {
 // Small non-cryptographic hash so we can tell whether the cached reflection
 // still matches the story (and uploads) the user last left on the homepage.
 function hashInput(text, uploads, interviewNotes) {
+  // interviewNotes[slug] is either the current running-conversation format
+  // (an array of {role, text} turns) or the legacy single-string format.
+  // Either way, hash on the actual role+text content only (not ts, which
+  // would otherwise bust the cache on every render for no real reason).
   const notesPart = Object.entries(interviewNotes || {})
-    .map(([slug, note]) => `${slug}=${note}`)
+    .map(([slug, raw]) => {
+      const thread = Array.isArray(raw)
+        ? raw
+        : raw
+        ? [{ role: "user", text: String(raw) }]
+        : [];
+      const threadText = thread.map((turn) => `${turn.role}:${turn.text}`).join("~");
+      return `${slug}=${threadText}`;
+    })
     .join("|");
   const source = `${text}::${(uploads || []).map((u) => u.name).join("|")}::${notesPart}`;
   let hash = 0;

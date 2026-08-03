@@ -32,6 +32,32 @@ export function fallbackAboutPayload(text, recommendations) {
   };
 }
 
+// Rule-based safety net for the notes conversation when no AI provider is
+// reachable. Can't actually engage with a specific reference the way the
+// real model can, but tries to at least anchor the question on whatever
+// proper noun the person just typed, rather than defaulting to something
+// completely generic every time.
+export function fallbackNotesReply(noteText, interviewTitle) {
+  const trimmed = (noteText || "").trim();
+  const who = String(interviewTitle || "").split(",")[0].trim() || "the person you're reading";
+
+  if (!trimmed) {
+    return "What's the detail here that you keep circling back to?";
+  }
+
+  // Skip common sentence-initial capitals ("This", "That", "I"...) so the
+  // fallback anchors on an actual proper noun (Proust, Homer, ...) instead
+  // of just grabbing the first word of the sentence.
+  const COMMON_CAPITALIZED_STARTERS = /^(?:This|That|These|Those|The|A|An|My|Our|Your|Their|His|Her|Its|It|I|We|They|He|She|You)$/;
+  const candidates = trimmed.match(/\b[A-Z][a-zA-Z'-]{2,}(?:\s+[A-Z][a-zA-Z'-]{2,})?\b/g) || [];
+  const properNoun = candidates.find((word) => !COMMON_CAPITALIZED_STARTERS.test(word.split(" ")[0]));
+  if (properNoun) {
+    return `You mentioned ${properNoun} - what's the specific detail or idea there that made you think of ${who}?`;
+  }
+
+  return `Say more about that - what's underneath it, and how does it sit next to ${who}?`;
+}
+
 export function fallbackResonanceNote(excerptTitle, excerptText) {
   // Third-person, no "you", no question - stays about the interviewee, the
   // way the real AI-generated note does. This is only the rule-based

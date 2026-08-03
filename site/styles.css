@@ -917,30 +917,34 @@ mark {
 
 .quote-feed-item .feed-prompt {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--brand-dark);
+  font-style: italic;
   font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
-  background: var(--highlight-soft);
-  border-radius: 4px;
-  padding: 0.4rem 0.55rem;
-  transform: rotate(-0.35deg);
-  transition: background 0.2s ease;
 }
 
-.quote-feed-item:hover .feed-prompt {
-  background: var(--highlight-strong);
-}
-
+/* The highlighter treatment lives on the snippet, not the (optional)
+   question above it - every card has a snippet, so the highlight is
+   always present and consistent, rather than only showing up on cards
+   that happen to have a real transcript question. */
 .quote-feed-item .snippet {
   margin: 0;
   font-size: 0.87rem;
-  line-height: 1.55;
-  color: var(--muted);
+  line-height: 1.6;
+  color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  background: var(--highlight-soft);
+  border-radius: 4px;
+  padding: 0.45rem 0.6rem;
+  transition: background 0.2s ease;
+}
+
+.quote-feed-item:hover .snippet {
+  background: var(--highlight-strong);
 }
 
 .quote-feed-item .feed-cta {
@@ -1120,6 +1124,9 @@ mark {
   border-top: 1px solid var(--stroke);
   padding: 1rem 1.5rem 1.3rem;
   background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  max-height: 46vh;
 }
 
 .reader-notes-label {
@@ -1127,11 +1134,66 @@ mark {
   font-size: 0.8rem;
   color: var(--muted);
   margin-bottom: 0.2rem;
+  flex: none;
 }
 
 .reader-notes-hint {
   margin: 0 0 0.4rem;
   font-size: 0.82rem;
+  color: var(--muted);
+  font-style: italic;
+  flex: none;
+}
+
+.reader-notes-thread {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  min-height: 0;
+}
+
+.reader-notes-thread:empty {
+  display: none;
+}
+
+.note-turn {
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  max-width: 92%;
+}
+
+.note-turn p {
+  margin: 0;
+}
+
+.note-turn-user {
+  align-self: flex-end;
+  background: var(--highlight-soft);
+  color: var(--text);
+  border-bottom-right-radius: 3px;
+}
+
+.note-turn-ai {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--stroke);
+  border-left: 3px solid var(--brand);
+  color: var(--text);
+  border-bottom-left-radius: 3px;
+}
+
+.note-turn-pending {
+  color: var(--muted);
+  font-style: italic;
+  animation: skeleton-pulse 1.3s ease-in-out infinite;
+}
+
+.note-turn-error {
+  border-left-color: var(--muted);
   color: var(--muted);
   font-style: italic;
 }
@@ -1147,6 +1209,7 @@ mark {
   background: #fff;
   box-sizing: border-box;
   transition: border-color 0.15s ease;
+  flex: none;
 }
 
 .reader-notes-input:focus {
@@ -1159,6 +1222,7 @@ mark {
   display: flex;
   align-items: center;
   gap: 0.7rem;
+  flex: none;
 }
 
 .reader-notes-save {
@@ -1171,7 +1235,7 @@ mark {
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
 }
 
 .reader-notes-save:hover {
@@ -1182,15 +1246,14 @@ mark {
   transform: scale(0.97);
 }
 
-.reader-notes-status {
-  font-size: 0.8rem;
-  color: var(--brand-dark);
-  opacity: 0;
-  transition: opacity 0.25s ease;
+.reader-notes-save:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
-.reader-notes-status.is-visible {
-  opacity: 1;
+.reader-notes-hint-small {
+  font-size: 0.74rem;
+  color: var(--muted);
 }
 
 body.reader-open {

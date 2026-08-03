@@ -8,11 +8,13 @@
 // Pages Git integration instead.
 import { buildRecommendations, stripBoilerplate } from "../functions/_lib/matching.js";
 import { callTextProvider, describeImage } from "../functions/_lib/providers.js";
-import { SYNTHESIS_SYSTEM_PROMPT, RESONANCE_SYSTEM_PROMPT } from "../functions/_lib/prompts.js";
-import { fallbackAboutPayload, fallbackResonanceNote } from "../functions/_lib/fallback.js";
+import { SYNTHESIS_SYSTEM_PROMPT, RESONANCE_SYSTEM_PROMPT, NOTES_REPLY_SYSTEM_PROMPT } from "../functions/_lib/prompts.js";
+import { fallbackAboutPayload, fallbackResonanceNote, fallbackNotesReply } from "../functions/_lib/fallback.js";
 
 const MAX_IMAGE_DESCRIPTIONS = 2;
 const MAX_TEXT_EXCERPT_CHARS = 3000;
+const MAX_THREAD_TURNS = 6;
+const MAX_NOTES_CONTEXT_CHARS = 3000;
 
 function jsonResponse(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -73,12 +75,39 @@ async function gatherUploadContext(env, uploads) {
   return { extraText: extraTextParts.join(" "), annotatedUploads: annotated };
 }
 
+// interviewNotes[slug] can be either the legacy single-string format or
+// the current running-conversation format (an array of {role, text} turns
+// - "user" for the person's own notes, "ai" for the follow-up questions
+// the notes panel asked back). Both are normalized to a turn array here so
+// the rest of synthesis doesn't need to care which shape it got.
+function normalizeNoteEntry(raw) {
+  if (typeof raw === "string") {
+    const text = raw.trim();
+    return text ? [{ role: "user", text }] : [];
+  }
+  if (Array.isArray(raw)) {
+    return raw
+      .map((turn) => ({
+        role: turn && turn.role === "ai" ? "ai" : "user",
+        text: String((turn && turn.text) || "").trim(),
+      }))
+      .filter((turn) => turn.text);
+  }
+  return [];
+}
+
+// Only the person's own words are a useful signal for keyword matching -
+// the AI's own follow-up questions would just skew scoring toward archive
+// vocabulary it already picked.
 function gatherInterviewNotes(interviewNotes) {
   if (!interviewNotes || typeof interviewNotes !== "object") return "";
-  return Object.values(interviewNotes)
-    .map((note) => String(note || "").trim())
-    .filter(Boolean)
-    .join(" ");
+  const parts = [];
+  for (const raw of Object.values(interviewNotes)) {
+    for (const turn of normalizeNoteEntry(raw)) {
+      if (turn.role === "user") parts.push(turn.text);
+    }
+  }
+  return parts.join(" ");
 }
 
 async function synthesize(env, requestUrl, payload) {
@@ -108,8 +137,8 @@ async function synthesize(env, requestUrl, payload) {
   }));
 
   const readerNotes = Object.entries(payload.interviewNotes || {})
-    .map(([slug, note]) => ({ slug, note: String(note || "").trim() }))
-    .filter((item) => item.note);
+    .map(([slug, raw]) => ({ slug, thread: normalizeNoteEntry(raw) }))
+    .filter((item) => item.thread.length);
 
   const userPayload = {
     user_text: text,
@@ -180,6 +209,36 @@ async function getResonanceNote(env, payload) {
   return { note: fallbackResonanceNote(excerptTitle, excerptText), source: "fallback" };
 }
 
+async function getNotesReply(env, payload) {
+  const noteText = String(payload.noteText || "").trim();
+  const thread = Array.isArray(payload.thread)
+    ? payload.thread.slice(-MAX_THREAD_TURNS).map((turn) => ({
+        role: turn && turn.role === "ai" ? "ai" : "user",
+        text: String((turn && turn.text) || "").slice(0, 600),
+      }))
+    : [];
+  const interviewTitle = String(payload.interviewTitle || "");
+  const interviewContext = String(payload.interviewContext || "").slice(0, MAX_NOTES_CONTEXT_CHARS);
+
+  const userPayload = {
+    note: noteText,
+    recent_thread: thread,
+    interview_title: interviewTitle,
+    interview_context: interviewContext,
+  };
+
+  const result = await callTextProvider(env, [
+    { role: "system", content: NOTES_REPLY_SYSTEM_PROMPT },
+    { role: "user", content: JSON.stringify(userPayload) },
+  ]);
+
+  if (result && result.parsed && typeof result.parsed === "object" && result.parsed.reply) {
+    return { reply: String(result.parsed.reply), source: result.providerName };
+  }
+
+  return { reply: fallbackNotesReply(noteText, interviewTitle), source: "fallback" };
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -216,6 +275,27 @@ export default {
         return jsonResponse(result);
       } catch (error) {
         console.error("[ai-question] failed:", error);
+        return jsonResponse({ error: String(error) }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/ai-notes-reply") {
+      if (request.method === "OPTIONS") return corsPreflight();
+      if (request.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+      let payload;
+      try {
+        payload = await readJsonBody(request);
+      } catch {
+        return jsonResponse({ error: "Invalid JSON" }, 400);
+      }
+      if (!String(payload.noteText || "").trim()) {
+        return jsonResponse({ error: "noteText is required" }, 400);
+      }
+      try {
+        const result = await getNotesReply(env, payload);
+        return jsonResponse(result);
+      } catch (error) {
+        console.error("[ai-notes-reply] failed:", error);
         return jsonResponse({ error: String(error) }, 500);
       }
     }

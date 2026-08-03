@@ -59,12 +59,39 @@ async function gatherUploadContext(env, uploads) {
   return { extraText: extraTextParts.join(" "), annotatedUploads: annotated };
 }
 
+// interviewNotes[slug] can be either the legacy single-string format or
+// the current running-conversation format (an array of {role, text} turns
+// - "user" for the person's own notes, "ai" for the follow-up questions
+// the notes panel asked back). Both are normalized to a turn array here so
+// the rest of synthesis doesn't need to care which shape it got.
+function normalizeNoteEntry(raw) {
+  if (typeof raw === "string") {
+    const text = raw.trim();
+    return text ? [{ role: "user", text }] : [];
+  }
+  if (Array.isArray(raw)) {
+    return raw
+      .map((turn) => ({
+        role: turn && turn.role === "ai" ? "ai" : "user",
+        text: String((turn && turn.text) || "").trim(),
+      }))
+      .filter((turn) => turn.text);
+  }
+  return [];
+}
+
+// Only the person's own words are a useful signal for keyword matching -
+// the AI's own follow-up questions would just skew scoring toward archive
+// vocabulary it already picked.
 function gatherInterviewNotes(interviewNotes) {
   if (!interviewNotes || typeof interviewNotes !== "object") return "";
-  return Object.values(interviewNotes)
-    .map((note) => String(note || "").trim())
-    .filter(Boolean)
-    .join(" ");
+  const parts = [];
+  for (const raw of Object.values(interviewNotes)) {
+    for (const turn of normalizeNoteEntry(raw)) {
+      if (turn.role === "user") parts.push(turn.text);
+    }
+  }
+  return parts.join(" ");
 }
 
 async function synthesize(env, requestUrl, payload) {
@@ -93,9 +120,12 @@ async function synthesize(env, requestUrl, payload) {
     textExcerpt: (item.textExcerpt || "").slice(0, 500),
   }));
 
+  // The full back-and-forth (not just the person's side) gives the
+  // synthesis model real conversational context - what they said, and
+  // what a sharp follow-up question drew out of them.
   const readerNotes = Object.entries(payload.interviewNotes || {})
-    .map(([slug, note]) => ({ slug, note: String(note || "").trim() }))
-    .filter((item) => item.note);
+    .map(([slug, raw]) => ({ slug, thread: normalizeNoteEntry(raw) }))
+    .filter((item) => item.thread.length);
 
   const userPayload = {
     user_text: text,

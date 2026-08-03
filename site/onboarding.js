@@ -41,13 +41,18 @@ const readerBody = document.getElementById("readerBody");
 const readerNotesInput = document.getElementById("readerNotesInput");
 const readerNotesHint = document.getElementById("readerNotesHint");
 const readerNotesSave = document.getElementById("readerNotesSave");
-const readerNotesStatus = document.getElementById("readerNotesStatus");
+const readerNotesThread = document.getElementById("readerNotesThread");
 
 let corpus = [];
 let state = {
   text: "",
   uploads: [],
+  // Per-interview conversation threads: { [slug]: [{ role: "user"|"ai", text, ts }] }
   interviewNotes: {},
+  // Unsent draft text per interview, so closing the panel mid-thought
+  // doesn't lose it - but nothing is added to the actual conversation
+  // (and no AI call happens) until the person presses Continue.
+  noteDrafts: {},
 };
 let activeMatches = [];
 // Per-item fetched questions, keyed by index into activeMatches. Cleared
@@ -482,7 +487,10 @@ async function spotlightTopMatch(match) {
 let readerObserver = null;
 let currentReaderSlug = null;
 let currentReaderIndex = null;
-let notesSaveTimer = null;
+let currentReaderChunks = [];
+let draftSaveTimer = null;
+let notesStatusTimer = null;
+let isAwaitingNotesReply = false;
 
 function renderReaderChunks(slug) {
   const chunks = getInterviewChunks(slug);
@@ -524,6 +532,47 @@ function setupReaderObserver(slug, chunks) {
   readerBody.querySelectorAll(".reader-chunk").forEach((el) => readerObserver.observe(el));
 }
 
+// What gets sent to the AI so its follow-up can actually be grounded in
+// the interview, not just the note in isolation - the whole transcript,
+// capped so the request stays small.
+const MAX_NOTES_AI_CONTEXT_CHARS = 3000;
+function buildInterviewContextText(chunks) {
+  return chunks
+    .map((chunk) => (chunk.question ? `Q: ${chunk.question}\n${chunk.text}` : chunk.text))
+    .join("\n\n")
+    .slice(0, MAX_NOTES_AI_CONTEXT_CHARS);
+}
+
+function getNotesThread(slug) {
+  const raw = state.interviewNotes && state.interviewNotes[slug];
+  return Array.isArray(raw) ? raw : [];
+}
+
+function renderNotesThread(slug) {
+  if (!readerNotesThread) return;
+  const thread = getNotesThread(slug);
+  readerNotesThread.innerHTML = thread
+    .map(
+      (turn) => `
+        <div class="note-turn note-turn-${turn.role === "ai" ? "ai" : "user"}">
+          <p>${escapeHtml(turn.text)}</p>
+        </div>
+      `
+    )
+    .join("");
+  readerNotesThread.scrollTop = readerNotesThread.scrollHeight;
+}
+
+function appendPendingThinkingBubble() {
+  if (!readerNotesThread) return null;
+  const bubble = document.createElement("div");
+  bubble.className = "note-turn note-turn-ai note-turn-pending";
+  bubble.innerHTML = "<p>Thinking of a follow-up&hellip;</p>";
+  readerNotesThread.appendChild(bubble);
+  readerNotesThread.scrollTop = readerNotesThread.scrollHeight;
+  return bubble;
+}
+
 function openReader(index) {
   const match = activeMatches[index];
   if (!match || !readerPanel) return;
@@ -534,10 +583,11 @@ function openReader(index) {
   if (readerTitle) readerTitle.textContent = match.title;
   if (readerSourceLink) readerSourceLink.href = match.url || "#";
 
-  const chunks = renderReaderChunks(match.slug);
+  currentReaderChunks = renderReaderChunks(match.slug);
 
+  renderNotesThread(match.slug);
   if (readerNotesInput) {
-    readerNotesInput.value = (state.interviewNotes && state.interviewNotes[match.slug]) || "";
+    readerNotesInput.value = (state.noteDrafts && state.noteDrafts[match.slug]) || "";
   }
   if (readerNotesHint) {
     readerNotesHint.textContent = match.question ? `Reacting to: “${match.question}”` : "What stands out to you here?";
@@ -556,7 +606,7 @@ function openReader(index) {
     setTimeout(() => target.classList.remove("is-highlighted"), 1600);
   }
 
-  setupReaderObserver(match.slug, chunks);
+  setupReaderObserver(match.slug, currentReaderChunks);
 }
 
 function closeReader() {
@@ -570,38 +620,92 @@ function closeReader() {
   }
   currentReaderSlug = null;
   currentReaderIndex = null;
+  currentReaderChunks = [];
 }
 
-let notesStatusTimer = null;
-
-function saveCurrentNote(options = {}) {
+// Unsent text only - never part of the actual conversation, and never
+// triggers an AI call. Just so closing the panel mid-thought doesn't lose
+// what was typed.
+function saveDraft() {
   if (!currentReaderSlug || !readerNotesInput) return;
-  state.interviewNotes = state.interviewNotes || {};
+  state.noteDrafts = state.noteDrafts || {};
   const value = readerNotesInput.value.trim();
   if (value) {
-    state.interviewNotes[currentReaderSlug] = value;
+    state.noteDrafts[currentReaderSlug] = value;
   } else {
-    delete state.interviewNotes[currentReaderSlug];
+    delete state.noteDrafts[currentReaderSlug];
   }
   safeSetStorage(PROFILE_STORAGE_KEY, state);
-
-  // The autosave-on-input path is silent by design (no status flicker
-  // while someone is still typing) - only the explicit Save button and
-  // closing the panel show a confirmation, so there's always a clear
-  // "yes, that landed" moment.
-  if (options.announce && readerNotesStatus) {
-    clearTimeout(notesStatusTimer);
-    readerNotesStatus.textContent = value ? "Saved" : "Note cleared";
-    readerNotesStatus.classList.add("is-visible");
-    notesStatusTimer = setTimeout(() => {
-      readerNotesStatus.classList.remove("is-visible");
-    }, 1600);
-  }
 }
 
 function handleNotesInput() {
-  clearTimeout(notesSaveTimer);
-  notesSaveTimer = setTimeout(saveCurrentNote, 500);
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(saveDraft, 500);
+}
+
+async function fetchNotesReply(noteText, priorThread, match) {
+  const response = await fetch("/api/ai-notes-reply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      noteText,
+      thread: priorThread,
+      interviewTitle: match.title,
+      interviewContext: buildInterviewContextText(currentReaderChunks),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Server responded ${response.status}`);
+  }
+  const result = await response.json();
+  return result.reply || "";
+}
+
+// The explicit "Continue" action: sends the person's note, adds it to the
+// thread immediately, then asks the AI for a real follow-up grounded in
+// whatever they actually referenced - the back-and-forth the notes panel
+// is for.
+async function sendNoteTurn() {
+  if (isAwaitingNotesReply || !currentReaderSlug || !readerNotesInput) return;
+  const text = readerNotesInput.value.trim();
+  if (!text) return;
+
+  const slug = currentReaderSlug;
+  const match = activeMatches[currentReaderIndex];
+  const priorThread = getNotesThread(slug).map((turn) => ({ role: turn.role, text: turn.text }));
+
+  state.interviewNotes = state.interviewNotes || {};
+  state.interviewNotes[slug] = [...getNotesThread(slug), { role: "user", text, ts: Date.now() }];
+  state.noteDrafts = state.noteDrafts || {};
+  delete state.noteDrafts[slug];
+  safeSetStorage(PROFILE_STORAGE_KEY, state);
+
+  readerNotesInput.value = "";
+  renderNotesThread(slug);
+
+  isAwaitingNotesReply = true;
+  readerNotesSave.disabled = true;
+  const pendingBubble = appendPendingThinkingBubble();
+
+  try {
+    const reply = await fetchNotesReply(text, priorThread, match || { title: "" });
+    if (pendingBubble) pendingBubble.remove();
+    if (reply && currentReaderSlug === slug) {
+      state.interviewNotes[slug] = [...getNotesThread(slug), { role: "ai", text: reply, ts: Date.now() }];
+      safeSetStorage(PROFILE_STORAGE_KEY, state);
+      if (currentReaderSlug === slug) renderNotesThread(slug);
+    }
+  } catch (error) {
+    console.error("Could not fetch a notes follow-up:", error);
+    if (pendingBubble) {
+      pendingBubble.classList.remove("note-turn-pending");
+      pendingBubble.classList.add("note-turn-error");
+      pendingBubble.innerHTML = "<p>Couldn't reach the archive just now - your note is saved, try again in a moment.</p>";
+    }
+  } finally {
+    isAwaitingNotesReply = false;
+    readerNotesSave.disabled = false;
+  }
 }
 
 function triggerMatch(text) {
@@ -755,36 +859,41 @@ function wireEvents() {
 
   if (readerClose) {
     readerClose.addEventListener("click", () => {
-      saveCurrentNote();
+      saveDraft();
       closeReader();
     });
   }
 
   if (readerBackdrop) {
     readerBackdrop.addEventListener("click", () => {
-      saveCurrentNote();
+      saveDraft();
       closeReader();
     });
   }
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && readerPanel && readerPanel.classList.contains("is-open")) {
-      saveCurrentNote();
+      saveDraft();
       closeReader();
     }
   });
 
   if (readerNotesInput) {
     readerNotesInput.addEventListener("input", handleNotesInput);
+    // Enter sends (like a chat box); Shift+Enter still makes a new line.
+    readerNotesInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        clearTimeout(draftSaveTimer);
+        sendNoteTurn();
+      }
+    });
   }
 
-  // The debounced autosave-while-typing was invisible - there was no "Go"
-  // equivalent to press, so it didn't feel like the note actually went
-  // anywhere. This gives that explicit action back.
   if (readerNotesSave) {
     readerNotesSave.addEventListener("click", () => {
-      clearTimeout(notesSaveTimer);
-      saveCurrentNote({ announce: true });
+      clearTimeout(draftSaveTimer);
+      sendNoteTurn();
     });
   }
 
@@ -803,12 +912,29 @@ function wireEvents() {
   });
 }
 
+// Older saved state had interviewNotes[slug] as a plain string (a single
+// note, no conversation). Upgrade it in place to the current turn-array
+// shape so nothing typed before this change is lost.
+function migrateInterviewNotes(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  const migrated = {};
+  for (const [slug, value] of Object.entries(raw)) {
+    if (Array.isArray(value)) {
+      migrated[slug] = value;
+    } else if (typeof value === "string" && value.trim()) {
+      migrated[slug] = [{ role: "user", text: value.trim(), ts: Date.now() }];
+    }
+  }
+  return migrated;
+}
+
 async function initialize() {
   const saved = readStorage(PROFILE_STORAGE_KEY);
   if (saved && typeof saved === "object") {
     state.text = String(saved.text || "");
     state.uploads = Array.isArray(saved.uploads) ? saved.uploads : [];
-    state.interviewNotes = saved.interviewNotes && typeof saved.interviewNotes === "object" ? saved.interviewNotes : {};
+    state.interviewNotes = migrateInterviewNotes(saved.interviewNotes);
+    state.noteDrafts = saved.noteDrafts && typeof saved.noteDrafts === "object" ? saved.noteDrafts : {};
   }
 
   storyInput.value = state.text;

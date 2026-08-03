@@ -75,10 +75,11 @@
           <div class="reader-notes">
             <label for="readerNotesInput" class="reader-notes-label">Notes</label>
             <p id="readerNotesHint" class="reader-notes-hint"></p>
-            <textarea id="readerNotesInput" class="reader-notes-input" rows="3" placeholder="Jot down whatever this brings up - it'll feed into your reflection."></textarea>
+            <div id="readerNotesThread" class="reader-notes-thread" aria-live="polite"></div>
+            <textarea id="readerNotesInput" class="reader-notes-input" rows="2" placeholder="Jot down whatever this brings up..."></textarea>
             <div class="reader-notes-actions">
-              <button id="readerNotesSave" type="button" class="reader-notes-save">Save note</button>
-              <span id="readerNotesStatus" class="reader-notes-status" aria-live="polite"></span>
+              <button id="readerNotesSave" type="button" class="reader-notes-save">Continue</button>
+              <span class="reader-notes-hint-small">Enter to send &middot; Shift+Enter for a new line</span>
             </div>
           </div>
         </div>

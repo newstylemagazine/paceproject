@@ -43,8 +43,9 @@ SYNTHESIS_SYSTEM_PROMPT = (
     "therapist-speak ('sit with', 'hold space', 'journey'). Say things the way a smart, "
     "honest friend would say them once, plainly. Be specific and grounded in what the "
     "person actually shared - never generic.\n\n"
-    "The person may also include reader_notes - reactions they jotted down while reading "
-    "specific interview excerpts. Treat these as some of the most direct evidence of what's "
+    "The person may also include reader_notes - each one a running conversation they had "
+    "while reading a specific interview, jotting reactions and being asked real follow-up "
+    "questions back. Treat these threads as some of the most direct evidence of what's "
     "actually on their mind, and weave them in concretely where relevant.\n\n"
     "Return only valid JSON with these keys:\n"
     "- mirror_headline: a short phrase (under 12 words) reflecting something true or "
@@ -83,6 +84,32 @@ RESONANCE_SYSTEM_PROMPT = (
     "Avoid shallow templates and generic phrasing. Be specific and grounded in real details. "
     "Plain and direct - not corporate, not therapist-speak, not a sentimental quote.\n\n"
     'Return only valid JSON: {"note": "..."}'
+)
+
+# Unlike RESONANCE_SYSTEM_PROMPT (third person, never addresses the reader,
+# never asks a question) - this one is deliberately different. It powers the
+# notes panel specifically, a space the person explicitly asked to be a real
+# back-and-forth while they read. Here the model DOES speak directly to them
+# and DOES ask a real question.
+NOTES_REPLY_SYSTEM_PROMPT = (
+    "Someone is reading a specific interview from an oral-history archive and taking notes "
+    "as they go, in a running conversation with themselves (and now with you). They just "
+    "wrote a note. Write ONE genuine, specific follow-up question back to them - a real "
+    "back-and-forth, the way a sharp, well-read friend would respond in the margin of a "
+    "book, not a customer-service check-in.\n\n"
+    "If their note names something specific - a book, author, thinker, historical event, "
+    "concept, or work (Proust, Homer, a particular theory, whatever it is) - engage with that "
+    "directly and substantively. Show you actually know the thing they mentioned; ask about a "
+    "real detail, tension, or idea within it, never a vague 'what does that mean to you'. "
+    "Where it genuinely fits, connect it to something specific the interviewee actually said "
+    "or lived (using interview_context below) - but never force a connection that isn't "
+    "there; a good question about their own reference, on its own, is enough.\n\n"
+    "Use recent_thread for continuity - don't repeat a question already asked, and let the "
+    "conversation actually build.\n\n"
+    "Write in second person, directly to them. One question, 1-2 sentences, under 45 words. "
+    "Plain and direct - not corporate, not therapist-speak, not a lecture. Specific, never "
+    "generic ('how did that make you feel' is banned).\n\n"
+    'Return only valid JSON: {"reply": "..."}'
 )
 
 IMAGE_DESCRIPTION_PROMPT = (
@@ -386,11 +413,37 @@ def fallback_about_payload(text: str, recommendations: list[dict[str, Any]]) -> 
     }
 
 
+def normalize_note_entry(raw: Any) -> list[dict[str, str]]:
+    # interviewNotes[slug] can be either the legacy single-string format or
+    # the current running-conversation format (a list of {role, text} turns
+    # - "user" for the person's own notes, "ai" for the follow-up questions
+    # the notes panel asked back). Both are normalized to a turn list here.
+    if isinstance(raw, str):
+        text = raw.strip()
+        return [{"role": "user", "text": text}] if text else []
+    if isinstance(raw, list):
+        turns = []
+        for turn in raw:
+            if not isinstance(turn, dict):
+                continue
+            text = str(turn.get("text") or "").strip()
+            if not text:
+                continue
+            role = "ai" if turn.get("role") == "ai" else "user"
+            turns.append({"role": role, "text": text})
+        return turns
+    return []
+
+
 def gather_interview_notes(interview_notes: Any) -> str:
     if not isinstance(interview_notes, dict):
         return ""
-    parts = [str(note or "").strip() for note in interview_notes.values()]
-    return " ".join(part for part in parts if part)
+    parts = []
+    for raw in interview_notes.values():
+        for turn in normalize_note_entry(raw):
+            if turn["role"] == "user":
+                parts.append(turn["text"])
+    return " ".join(parts)
 
 
 def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
@@ -418,9 +471,9 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         for item in annotated_uploads
     ]
     reader_notes = [
-        {"slug": slug, "note": str(note or "").strip()}
-        for slug, note in interview_notes.items()
-        if isinstance(interview_notes, dict) and str(note or "").strip()
+        {"slug": slug, "thread": normalize_note_entry(raw)}
+        for slug, raw in interview_notes.items()
+        if isinstance(interview_notes, dict) and normalize_note_entry(raw)
     ]
     user_payload = {
         "user_text": text,
@@ -482,6 +535,67 @@ def fallback_resonance_note(excerpt_title: str, excerpt_text: str) -> str:
     if not clipped:
         return f"{who}'s story sits close to what was just written."
     return f'{who} described this: "{clipped}..." - a detail that sits close to what was just written.'
+
+
+def fallback_notes_reply(note_text: str, interview_title: str) -> str:
+    # Rule-based safety net for the notes conversation when no AI provider
+    # is reachable. Can't actually engage with a specific reference the way
+    # the real model can, but tries to anchor on whatever proper noun the
+    # person just typed, rather than defaulting to something fully generic.
+    trimmed = (note_text or "").strip()
+    who = str(interview_title or "").split(",")[0].strip() or "the person you're reading"
+
+    if not trimmed:
+        return "What's the detail here that you keep circling back to?"
+
+    # Skip common sentence-initial capitals ("This", "That", "I"...) so the
+    # fallback anchors on an actual proper noun (Proust, Homer, ...) instead
+    # of just grabbing the first word of the sentence.
+    common_capitalized_starters = {
+        "This", "That", "These", "Those", "The", "A", "An", "My", "Our", "Your",
+        "Their", "His", "Her", "Its", "It", "I", "We", "They", "He", "She", "You",
+    }
+    candidates = re.findall(r"\b[A-Z][a-zA-Z'-]{2,}(?:\s+[A-Z][a-zA-Z'-]{2,})?\b", trimmed)
+    proper_noun = next((word for word in candidates if word.split(" ")[0] not in common_capitalized_starters), None)
+    if proper_noun:
+        return f"You mentioned {proper_noun} - what's the specific detail or idea there that made you think of {who}?"
+
+    return f"Say more about that - what's underneath it, and how does it sit next to {who}?"
+
+
+def notes_reply(payload: dict[str, Any]) -> dict[str, Any]:
+    note_text = str(payload.get("noteText") or "").strip()
+    raw_thread = payload.get("thread") or []
+    thread = [
+        {
+            "role": "ai" if isinstance(turn, dict) and turn.get("role") == "ai" else "user",
+            "text": str((turn or {}).get("text") or "")[:600],
+        }
+        for turn in (raw_thread if isinstance(raw_thread, list) else [])
+    ][-6:]
+    interview_title = str(payload.get("interviewTitle") or "")
+    interview_context = str(payload.get("interviewContext") or "")[:3000]
+
+    user_payload = {
+        "note": note_text,
+        "recent_thread": thread,
+        "interview_title": interview_title,
+        "interview_context": interview_context,
+    }
+
+    result = call_text_provider(
+        [
+            {"role": "system", "content": NOTES_REPLY_SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps(user_payload)},
+        ]
+    )
+
+    if result:
+        _provider_name, parsed = result
+        if isinstance(parsed, dict) and parsed.get("reply"):
+            return {"reply": str(parsed["reply"]), "source": _provider_name}
+
+    return {"reply": fallback_notes_reply(note_text, interview_title), "source": "fallback"}
 
 
 def ask_question(payload: dict[str, Any]) -> dict[str, Any]:
@@ -557,6 +671,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             try:
                 self._send_json(ask_question(payload))
+            except Exception as error:
+                self._send_json({"error": str(error)}, status=500)
+            return
+
+        if route == "/api/ai-notes-reply":
+            payload = self._read_json_body()
+            if payload is None:
+                self.send_error(400, "Invalid JSON")
+                return
+            if not str(payload.get("noteText") or "").strip():
+                self._send_json({"error": "noteText is required"}, status=400)
+                return
+            try:
+                self._send_json(notes_reply(payload))
             except Exception as error:
                 self._send_json({"error": str(error)}, status=500)
             return
