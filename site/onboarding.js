@@ -328,16 +328,20 @@ async function fetchQuestion(match) {
 
 async function askAboutTopMatch(match) {
   continuePrompt.classList.add("is-loading");
-  continuePrompt.textContent = "Thinking of a question worth asking...";
+  continuePrompt.classList.remove("has-question");
+  continuePrompt.textContent = "Thinking of something to ask...";
 
   try {
     const question = await fetchQuestion(match);
-    continuePrompt.textContent = question
-      ? `${match.title} asked something close to this: “${question}” Keep writing and I'll follow up again.`
-      : "Keep writing - new questions will show up here as you go.";
+    if (question) {
+      continuePrompt.textContent = question;
+      continuePrompt.classList.add("has-question");
+    } else {
+      continuePrompt.textContent = "Keep writing - I'll ask you something as you go.";
+    }
   } catch (error) {
     console.error("Could not fetch a question:", error);
-    continuePrompt.textContent = "Keep writing - new questions will show up here as you go.";
+    continuePrompt.textContent = "Keep writing - I'll ask you something as you go.";
   } finally {
     continuePrompt.classList.remove("is-loading");
   }
@@ -354,8 +358,8 @@ function triggerMatch(text) {
   if (matches.length) {
     askAboutTopMatch(matches[0]);
   } else {
-    continuePrompt.classList.remove("is-loading");
-    continuePrompt.textContent = "No close quote matches yet. Add more detail, then keep writing.";
+    continuePrompt.classList.remove("is-loading", "has-question");
+    continuePrompt.textContent = "Keep writing - a few more specific details will surface a question.";
   }
 }
 
@@ -492,6 +496,7 @@ function wireEvents() {
   letsGoButton.addEventListener("click", () => {
     const text = storyInput.value.trim();
     if (!text) {
+      continuePrompt.classList.remove("has-question", "is-loading");
       continuePrompt.textContent = "Write a few honest lines first, then press Go.";
       storyInput.focus();
       return;

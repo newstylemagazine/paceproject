@@ -27,16 +27,15 @@
       </header>
 
       <section class="intake-panel" aria-label="Story input">
+        <p id="continuePrompt" class="continue-prompt">
+          Write a paragraph, then press Go. I'll ask you something as you go.
+        </p>
+
         <div id="intakeStage" class="intake-stage">
           <div class="write-surface">
             <textarea id="storyInput" class="story-input" rows="3" placeholder="Start anywhere. &ldquo;I keep thinking about taking time off...&rdquo; &ldquo;I'm not sure this job is still me...&rdquo; whatever's true right now."></textarea>
           </div>
         </div>
-
-        <p id="continuePrompt" class="continue-prompt">
-          Write a paragraph, then press Go and see who answers. New questions
-          show up here automatically as you keep writing.
-        </p>
 
         <div id="quoteFeed" class="quote-feed" aria-label="Matching voices" aria-live="polite" hidden></div>
 

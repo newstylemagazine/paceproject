@@ -920,13 +920,19 @@ mark {
 }
 
 .continue-prompt {
-  margin: 1.5rem 0 0;
+  margin: 0 auto 1.1rem;
   font-size: 0.95rem;
   color: var(--muted);
   line-height: 1.5;
   max-width: 640px;
-  margin-left: auto;
-  margin-right: auto;
+  transition: color 0.2s ease, font-size 0.2s ease;
+}
+
+.continue-prompt.has-question {
+  color: var(--text);
+  font-size: 1.2rem;
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
+  line-height: 1.4;
 }
 
 .continue-prompt.is-loading {
