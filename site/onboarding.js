@@ -40,6 +40,8 @@ const readerClose = document.getElementById("readerClose");
 const readerBody = document.getElementById("readerBody");
 const readerNotesInput = document.getElementById("readerNotesInput");
 const readerNotesHint = document.getElementById("readerNotesHint");
+const readerNotesSave = document.getElementById("readerNotesSave");
+const readerNotesStatus = document.getElementById("readerNotesStatus");
 
 let corpus = [];
 let state = {
@@ -570,7 +572,9 @@ function closeReader() {
   currentReaderIndex = null;
 }
 
-function saveCurrentNote() {
+let notesStatusTimer = null;
+
+function saveCurrentNote(options = {}) {
   if (!currentReaderSlug || !readerNotesInput) return;
   state.interviewNotes = state.interviewNotes || {};
   const value = readerNotesInput.value.trim();
@@ -580,6 +584,19 @@ function saveCurrentNote() {
     delete state.interviewNotes[currentReaderSlug];
   }
   safeSetStorage(PROFILE_STORAGE_KEY, state);
+
+  // The autosave-on-input path is silent by design (no status flicker
+  // while someone is still typing) - only the explicit Save button and
+  // closing the panel show a confirmation, so there's always a clear
+  // "yes, that landed" moment.
+  if (options.announce && readerNotesStatus) {
+    clearTimeout(notesStatusTimer);
+    readerNotesStatus.textContent = value ? "Saved" : "Note cleared";
+    readerNotesStatus.classList.add("is-visible");
+    notesStatusTimer = setTimeout(() => {
+      readerNotesStatus.classList.remove("is-visible");
+    }, 1600);
+  }
 }
 
 function handleNotesInput() {
@@ -759,6 +776,16 @@ function wireEvents() {
 
   if (readerNotesInput) {
     readerNotesInput.addEventListener("input", handleNotesInput);
+  }
+
+  // The debounced autosave-while-typing was invisible - there was no "Go"
+  // equivalent to press, so it didn't feel like the note actually went
+  // anywhere. This gives that explicit action back.
+  if (readerNotesSave) {
+    readerNotesSave.addEventListener("click", () => {
+      clearTimeout(notesSaveTimer);
+      saveCurrentNote({ announce: true });
+    });
   }
 
   letsGoButton.addEventListener("click", () => {
