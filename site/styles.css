@@ -990,13 +990,11 @@ mark {
   position: relative;
   color: var(--text);
   font-size: 1.1rem;
-  font-style: italic;
   font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
   line-height: 1.5;
   max-width: 680px;
   padding-left: 1.3rem;
   cursor: pointer;
-  transition: color 0.2s ease;
 }
 
 .continue-prompt.has-note::before {
@@ -1012,21 +1010,36 @@ mark {
   opacity: 0.8;
 }
 
-.continue-prompt.has-note:hover {
+.continue-prompt.has-note .spotlight-text {
+  display: block;
+  font-style: italic;
+  transition: color 0.2s ease;
+}
+
+.continue-prompt.has-note:hover .spotlight-text {
   color: var(--brand-dark);
 }
 
-.continue-prompt.has-note::after {
-  content: "\2192";
-  margin-left: 0.35rem;
-  color: var(--brand);
-  opacity: 0;
-  transition: opacity 0.2s ease, margin-left 0.2s ease;
+/* A hover-only arrow was the only clickability cue here before - invisible
+   until you happened to mouse over it, and useless on touch. This CTA is
+   always visible, same as the "Read the full interview" line on the cards
+   below, so it's obvious at rest that this is clickable, not just on
+   hover. */
+.continue-prompt.has-note .spotlight-cta {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: var(--brand-dark);
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
-.continue-prompt.has-note:hover::after {
-  opacity: 1;
-  margin-left: 0.55rem;
+.continue-prompt.has-note:hover .spotlight-cta {
+  color: var(--brand);
+  transform: translateX(4px);
 }
 
 .continue-prompt.is-loading {

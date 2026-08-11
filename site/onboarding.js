@@ -467,11 +467,22 @@ async function fetchResonanceNote(match) {
 // question, an invitation to answer it too, not the AI inventing a
 // conversational turn. Only narrative-only excerpts (no discrete question)
 // fall back to an AI-written connecting note.
+// The hover-only arrow used to be the only clickability cue on the
+// spotlight - invisible until you happened to mouse over it, and useless
+// on touch. This renders a persistent CTA line underneath, same as the
+// card grid below it, so it reads as clickable at rest, not just on hover.
+function renderSpotlightNote(text) {
+  continuePrompt.innerHTML = `
+    <span class="spotlight-text">${escapeHtml(text)}</span>
+    <span class="spotlight-cta">Read the full interview &rarr;</span>
+  `;
+}
+
 async function spotlightTopMatch(match) {
   if (match.question) {
     continuePrompt.classList.remove("is-loading");
     continuePrompt.classList.add("has-note");
-    continuePrompt.textContent = `${match.title} was asked: “${match.question}” - what's your own answer to that?`;
+    renderSpotlightNote(`${match.title} was asked: “${match.question}” - what's your own answer to that?`);
     return;
   }
 
@@ -483,7 +494,7 @@ async function spotlightTopMatch(match) {
     const note = await fetchResonanceNote(match);
     feedNotes.set(0, note);
     if (note) {
-      continuePrompt.textContent = note;
+      renderSpotlightNote(note);
       continuePrompt.classList.add("has-note");
     } else {
       continuePrompt.textContent = "Keep writing - related voices will surface below.";
