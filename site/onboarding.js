@@ -724,10 +724,20 @@ function triggerMatch(text) {
   }
 }
 
+// Grows the box with what's typed instead of starting big and empty - the
+// box visibly responding to each line is most of what "tactile" means
+// here. Capped by the CSS max-height (320px), past which it scrolls
+// internally instead of growing forever.
+function autoGrowStoryInput() {
+  storyInput.style.height = "auto";
+  storyInput.style.height = `${storyInput.scrollHeight}px`;
+}
+
 function refreshWordCount() {
   state.text = storyInput.value;
   wordCount.textContent = `${countWords(state.text)} words`;
   safeSetStorage(PROFILE_STORAGE_KEY, state);
+  autoGrowStoryInput();
 
   clearTimeout(autoMatchTimer);
   if (countWords(state.text) >= AUTO_MATCH_MIN_WORDS) {
@@ -939,6 +949,7 @@ async function initialize() {
 
   storyInput.value = state.text;
   wordCount.textContent = `${countWords(state.text)} words`;
+  autoGrowStoryInput();
   renderUploads();
 
   // The archive (corpus) loads asynchronously. Without this, a click on Go
