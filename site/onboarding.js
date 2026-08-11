@@ -171,13 +171,19 @@ function buildMatches(text, uploads) {
       continue;
     }
 
-    const clean = stripBoilerplate(record.text || "").replace(/\s+/g, " ").trim();
     // Real Q&A entries carry the interviewer's actual question - when it
     // exists, that becomes the prompt shown to the reader (an invitation
     // to answer the same question themselves), instead of anything
     // synthesized. Narrative-only entries (no discrete question) fall
     // back to an AI-written connecting note elsewhere.
     const question = String(record.question || "").replace(/^Q:\s*/i, "").trim();
+    // record.text is "question\n\nanswer" for real Q&A entries - once the
+    // question is already shown separately (the prompt above), quoting
+    // from record.text would repeat it verbatim inside the excerpt too.
+    // Use just the answer in that case; narrative-only entries have no
+    // separate question, so record.text there IS already just the answer.
+    const rawBody = question ? record.answer || record.text || "" : record.text || record.answer || "";
+    const clean = stripBoilerplate(rawBody).replace(/\s+/g, " ").trim();
     scored.push({
       slug: record.slug,
       chunkId: record.id || `${record.slug}-${scored.length}`,
@@ -217,7 +223,13 @@ function getInterviewChunks(slug) {
     .map((record) => ({
       id: record.id,
       question: String(record.question || "").replace(/^Q:\s*/i, "").trim(),
-      text: stripBoilerplate(record.text || record.answer || "").trim(),
+      // Same fix as buildMatches: don't repeat the question inside the
+      // answer text when it's already shown separately above it.
+      text: (() => {
+        const q = String(record.question || "").trim();
+        const body = q ? record.answer || record.text || "" : record.text || record.answer || "";
+        return stripBoilerplate(body).trim();
+      })(),
       order: (() => {
         const match = /#qa-(\d+)/.exec(String(record.id || ""));
         return match ? Number(match[1]) : 0;

@@ -1,12 +1,6 @@
 const PROFILE_STORAGE_KEY = "trace_profile_intake_v3";
 const ABOUT_STORAGE_KEY = "trace_about_me_v3";
 
-const PROVIDER_LABELS = {
-  groq: "Groq AI",
-  openai: "OpenAI",
-  fallback: "Local fallback",
-};
-
 function readStorage(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -110,18 +104,10 @@ function renderKindredVoices(container, voices) {
   });
 }
 
-function renderBadge(badgeEl, source) {
-  if (!badgeEl) return;
-  const label = PROVIDER_LABELS[source] || "Local fallback";
-  badgeEl.textContent = source === "fallback" ? label : `${label} ✨`;
-  badgeEl.className = `source-badge source-${source === "fallback" ? "fallback" : "ai"}`;
-}
-
 function els() {
   return {
     headline: document.getElementById("headline"),
     intro: document.getElementById("intro"),
-    badge: document.getElementById("sourceBadge"),
     regenerateButton: document.getElementById("regenerateButton"),
     statusLine: document.getElementById("statusLine"),
     threadList: document.getElementById("threadList"),
@@ -136,7 +122,6 @@ function renderEmptyState() {
   const e = els();
   e.headline.textContent = "You haven't written anything yet";
   e.intro.textContent = "Go write a few honest lines on the home page - or drop in a document or photo - then come back here.";
-  if (e.badge) e.badge.textContent = "";
   if (e.regenerateButton) e.regenerateButton.hidden = true;
   if (e.statusLine) e.statusLine.textContent = "";
   fillThreads(e.threadList, []);
@@ -174,7 +159,6 @@ function renderAbout(payload, { fromCache } = {}) {
   e.headline.textContent = about.mirror_headline || "Your reflection";
   e.intro.textContent = about.reflection || "A reflection woven from your story and the archive.";
 
-  renderBadge(e.badge, payload.source || "fallback");
   if (e.regenerateButton) e.regenerateButton.hidden = false;
   if (e.statusLine) {
     e.statusLine.textContent = fromCache
