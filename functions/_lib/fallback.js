@@ -45,14 +45,18 @@ export function fallbackNotesReply(noteText, interviewTitle) {
     return "What's the detail here that you keep circling back to?";
   }
 
-  // Skip common sentence-initial capitals ("This", "That", "I"...) so the
-  // fallback anchors on an actual proper noun (Proust, Homer, ...) instead
-  // of just grabbing the first word of the sentence.
-  const COMMON_CAPITALIZED_STARTERS = /^(?:This|That|These|Those|The|A|An|My|Our|Your|Their|His|Her|Its|It|I|We|They|He|She|You)$/;
-  const candidates = trimmed.match(/\b[A-Z][a-zA-Z'-]{2,}(?:\s+[A-Z][a-zA-Z'-]{2,})?\b/g) || [];
-  const properNoun = candidates.find((word) => !COMMON_CAPITALIZED_STARTERS.test(word.split(" ")[0]));
+  // A blocklist of common sentence-initial words ("This", "That"...) turned
+  // out to be an endless whack-a-mole - a persona test caught "Sure, but
+  // this AI is just going to tell me..." producing "You mentioned Sure",
+  // because "Sure" wasn't on the list. Sentence-initial capitalization is
+  // grammatically mandatory in English regardless of whether the word is a
+  // proper noun, so it's not a usable signal on its own - strip the first
+  // word of every sentence before searching, instead of trying to
+  // enumerate every possible non-proper-noun opener.
+  const withoutSentenceStarts = trimmed.replace(/(^|[.!?]\s+)[A-Z][a-zA-Z'-]*/g, (_match, boundary) => boundary);
+  const properNoun = withoutSentenceStarts.match(/\b[A-Z][a-zA-Z'-]{2,}(?:\s+[A-Z][a-zA-Z'-]{2,})?\b/);
   if (properNoun) {
-    return `You mentioned ${properNoun} - what's the specific detail or idea there that made you think of ${who}?`;
+    return `You mentioned ${properNoun[0]} - what's the specific detail or idea there that made you think of ${who}?`;
   }
 
   return `Say more about that - what's underneath it, and how does it sit next to ${who}?`;

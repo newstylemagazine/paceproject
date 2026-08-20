@@ -21,11 +21,26 @@ DATASETS = [
     ROOT / "data" / "tracephd" / "chunks.jsonl",
     ROOT / "data" / "tracetransborder" / "chunks.jsonl",
 ]
+# Expanded after a persona test (a humanities researcher writing about
+# Proust and Ruskin) surfaced generic filler verbs/adverbs ("like",
+# "still", "know") dominating match scoring - they show up in nearly
+# every personal narrative, so treating them as content words let
+# administrative boilerplate and barely-related interviews outscore
+# genuinely relevant ones just by sharing a lot of small talk.
 STOP_WORDS = {
     "the", "and", "for", "that", "this", "with", "from", "have", "has", "are", "was", "were", "you",
     "your", "our", "their", "about", "into", "after", "before", "will", "would", "should", "could", "can",
     "but", "not", "than", "then", "just", "been", "being", "also", "very", "more", "most", "such", "some",
     "any", "its", "we", "they", "them", "his", "her", "she", "him", "who", "what", "where", "when",
+    "like", "likes", "liked", "still", "know", "knew", "known", "get", "gets", "got", "getting",
+    "go", "goes", "going", "went", "gone", "make", "makes", "made", "making",
+    "think", "thinks", "thought", "thinking", "feel", "feels", "felt", "feeling",
+    "want", "wants", "wanted", "wanting", "look", "looks", "looked", "looking",
+    "come", "comes", "came", "coming", "keep", "keeps", "kept", "keeping",
+    "really", "actually", "quite", "well", "yet", "again", "always", "never",
+    "often", "sometimes", "even", "only", "much", "many", "lot", "lots",
+    "little", "few", "all", "every", "each", "other", "another", "same",
+    "am", "is", "be", "do", "does", "did", "doing",
 }
 
 MAX_IMAGE_DESCRIPTIONS = 2
@@ -179,10 +194,27 @@ def score_text(haystack: str, terms: list[str]) -> int:
 # <date>") label baked directly into the start of the text - scrub it so
 # snippets and AI context show the actual voice, not the label.
 _BOILERPLATE_PREFIX = re.compile(r"^(?:blog\s+)?narrative\s*\|[^\n]*\n+", re.IGNORECASE)
+# One record in the corpus (a milestone "50th narrative" post) opens with a
+# whole paragraph of site-editorial framing before the interviewee's actual
+# reflection starts - strip that too, the same way the date label above it
+# is stripped, so it never outweighs or gets quoted as their own words.
+_EDITOR_NOTE_PREFIX = re.compile(r"^editor.s note:[^\n]*\n+", re.IGNORECASE)
 
 
 def strip_boilerplate(text: str) -> str:
-    return _BOILERPLATE_PREFIX.sub("", text or "").strip()
+    result = _BOILERPLATE_PREFIX.sub("", text or "")
+    result = _EDITOR_NOTE_PREFIX.sub("", result)
+    return result.strip()
+
+
+# A handful of titles are prefixed with an archive milestone marker ("50th
+# Narrative: ...") that's about the archive, not the person - strip it so
+# cards/headers show just their name and role.
+_TITLE_MILESTONE_PREFIX = re.compile(r"^\d+(?:st|nd|rd|th)\s+narrative:\s*", re.IGNORECASE)
+
+
+def clean_title(title: str) -> str:
+    return _TITLE_MILESTONE_PREFIX.sub("", str(title or "")).strip()
 
 
 # A handful of scraped rows are site navigation ("Find more PhD Narratives on
@@ -248,7 +280,7 @@ def build_recommendations(text: str, upload_names: list[str]) -> list[dict[str, 
         if current and score <= current["score"]:
             continue
         best_by_slug[slug] = {
-            "title": title or "Interview",
+            "title": clean_title(title) or "Interview",
             "slug": slug,
             "datasetId": record.get("datasetId"),
             "url": record.get("url") or "#",
@@ -578,16 +610,22 @@ def fallback_notes_reply(note_text: str, interview_title: str) -> str:
     if not trimmed:
         return "What's the detail here that you keep circling back to?"
 
-    # Skip common sentence-initial capitals ("This", "That", "I"...) so the
-    # fallback anchors on an actual proper noun (Proust, Homer, ...) instead
-    # of just grabbing the first word of the sentence.
-    common_capitalized_starters = {
-        "This", "That", "These", "Those", "The", "A", "An", "My", "Our", "Your",
-        "Their", "His", "Her", "Its", "It", "I", "We", "They", "He", "She", "You",
-    }
-    candidates = re.findall(r"\b[A-Z][a-zA-Z'-]{2,}(?:\s+[A-Z][a-zA-Z'-]{2,})?\b", trimmed)
-    proper_noun = next((word for word in candidates if word.split(" ")[0] not in common_capitalized_starters), None)
-    if proper_noun:
+    # A blocklist of common sentence-initial words ("This", "That"...) turned
+    # out to be an endless whack-a-mole - a persona test caught "Sure, but
+    # this AI is just going to tell me..." producing "You mentioned Sure",
+    # because "Sure" wasn't on the list. Sentence-initial capitalization is
+    # grammatically mandatory in English regardless of whether the word is a
+    # proper noun, so it's not a usable signal on its own - strip the first
+    # word of every sentence before searching, instead of trying to
+    # enumerate every possible non-proper-noun opener.
+    without_sentence_starts = re.sub(
+        r"(^|[.!?]\s+)[A-Z][a-zA-Z'-]*",
+        lambda m: m.group(1),
+        trimmed,
+    )
+    proper_noun_match = re.search(r"\b[A-Z][a-zA-Z'-]{2,}(?:\s+[A-Z][a-zA-Z'-]{2,})?\b", without_sentence_starts)
+    if proper_noun_match:
+        proper_noun = proper_noun_match.group(0)
         return f"You mentioned {proper_noun} - what's the specific detail or idea there that made you think of {who}?"
 
     return f"Say more about that - what's underneath it, and how does it sit next to {who}?"

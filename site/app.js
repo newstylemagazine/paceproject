@@ -1,3 +1,25 @@
+// Same boilerplate/title cleanup as onboarding.js's matching logic
+// (site/onboarding.js), applied here too so the "Browse the archive" search
+// page shows the same clean titles and snippets, not raw scrape artifacts -
+// one interview's data (an archive-milestone post) opens with a whole
+// paragraph of site-editorial framing before the interviewee's own words,
+// and its title carries a "50th Narrative: " prefix that's about the
+// archive, not the person.
+const BOILERPLATE_PREFIX = /^(?:blog\s+)?narrative\s*\|[^\n]*\n+/i;
+const EDITOR_NOTE_PREFIX = /^editor.s note:[^\n]*\n+/i;
+const TITLE_MILESTONE_PREFIX = /^\d+(?:st|nd|rd|th)\s+narrative:\s*/i;
+
+function stripBoilerplate(text) {
+  return (text || "")
+    .replace(BOILERPLATE_PREFIX, "")
+    .replace(EDITOR_NOTE_PREFIX, "")
+    .trim();
+}
+
+function cleanTitle(title) {
+  return String(title || "").replace(TITLE_MILESTONE_PREFIX, "").trim();
+}
+
 const DATASETS = [
   {
     id: "tracemcgill",
@@ -411,6 +433,8 @@ async function loadDataset(dataset) {
   const text = await response.text();
   return parseJsonLines(text).map((entry) => ({
     ...entry,
+    title: cleanTitle(entry.title),
+    text: stripBoilerplate(entry.text),
     source: dataset.name,
     datasetId: dataset.id,
     isYoutube: dataset.isYoutube,

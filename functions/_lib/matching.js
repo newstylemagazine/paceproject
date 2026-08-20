@@ -2,11 +2,26 @@
 // scoring logic in scripts/serve_trace_searchable.py (build_recommendations
 // et al). Kept in its own module so both API routes can share it.
 
+// Expanded after a persona test (a humanities researcher writing about
+// Proust and Ruskin) surfaced generic filler verbs/adverbs ("like",
+// "still", "know") dominating match scoring - they show up in nearly
+// every personal narrative, so treating them as content words let
+// administrative boilerplate and barely-related interviews outscore
+// genuinely relevant ones just by sharing a lot of small talk.
 const STOP_WORDS = new Set([
   "the", "and", "for", "that", "this", "with", "from", "have", "has", "are", "was", "were", "you",
   "your", "our", "their", "about", "into", "after", "before", "will", "would", "should", "could", "can",
   "but", "not", "than", "then", "just", "been", "being", "also", "very", "more", "most", "such", "some",
   "any", "its", "we", "they", "them", "his", "her", "she", "him", "who", "what", "where", "when",
+  "like", "likes", "liked", "still", "know", "knew", "known", "get", "gets", "got", "getting",
+  "go", "goes", "going", "went", "gone", "make", "makes", "made", "making",
+  "think", "thinks", "thought", "thinking", "feel", "feels", "felt", "feeling",
+  "want", "wants", "wanted", "wanting", "look", "looks", "looked", "looking",
+  "come", "comes", "came", "coming", "keep", "keeps", "kept", "keeping",
+  "really", "actually", "quite", "well", "yet", "again", "always", "never",
+  "often", "sometimes", "even", "only", "much", "many", "lot", "lots",
+  "little", "few", "all", "every", "each", "other", "another", "same",
+  "am", "is", "be", "do", "does", "did", "doing",
 ]);
 
 const DATASETS = [
@@ -52,9 +67,27 @@ export function scoreText(haystack, terms) {
 // <date>") label baked directly into the start of the text - scrub it so
 // snippets and AI context show the actual voice, not the label.
 const BOILERPLATE_PREFIX = /^(?:blog\s+)?narrative\s*\|[^\n]*\n+/i;
+// One record in the corpus (a milestone "50th narrative" post) opens with
+// a whole paragraph of site-editorial framing before the interviewee's
+// actual reflection starts - strip that too, the same way the date label
+// above it is stripped, so it never outweighs or gets quoted as their own
+// words.
+const EDITOR_NOTE_PREFIX = /^editor.s note:[^\n]*\n+/i;
 
 export function stripBoilerplate(text) {
-  return (text || "").replace(BOILERPLATE_PREFIX, "").trim();
+  return (text || "")
+    .replace(BOILERPLATE_PREFIX, "")
+    .replace(EDITOR_NOTE_PREFIX, "")
+    .trim();
+}
+
+// A handful of titles are prefixed with an archive milestone marker
+// ("50th Narrative: ...") that's about the archive, not the person -
+// strip it so cards/headers show just their name and role.
+const TITLE_MILESTONE_PREFIX = /^\d+(?:st|nd|rd|th)\s+narrative:\s*/i;
+
+export function cleanTitle(title) {
+  return String(title || "").replace(TITLE_MILESTONE_PREFIX, "").trim();
 }
 
 // A handful of scraped rows are site navigation ("Find more PhD Narratives
@@ -154,7 +187,7 @@ export async function buildRecommendations(env, requestUrl, text, uploadNames) {
 
     const haystack = `${title} ${tags} ${body}`.toLowerCase();
     bestBySlug.set(slug, {
-      title: title || "Interview",
+      title: cleanTitle(title) || "Interview",
       slug,
       datasetId: record.datasetId,
       url: record.url || "#",
