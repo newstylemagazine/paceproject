@@ -4,7 +4,7 @@ import { IMAGE_DESCRIPTION_PROMPT } from "./prompts.js";
 function groqConfig(env) {
   const apiKey = (env.GROQ_API_KEY || "").trim();
   if (!apiKey) return null;
-  return { apiKey, model: env.GROQ_MODEL || "llama-3.3-70b-versatile" };
+  return { apiKey, model: env.GROQ_MODEL || "openai/gpt-oss-120b" };
 }
 
 function openaiConfig(env) {

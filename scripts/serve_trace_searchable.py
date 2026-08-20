@@ -375,7 +375,7 @@ def _groq_config() -> tuple[str, str] | None:
     api_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key:
         return None
-    return api_key, os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+    return api_key, os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
 def _openai_config() -> tuple[str, str] | None:

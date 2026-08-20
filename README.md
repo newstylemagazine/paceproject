@@ -115,7 +115,7 @@ To enable real model-backed synthesis for free, set a Groq key:
 
 ```bash
 export GROQ_API_KEY="your_groq_api_key"
-export GROQ_MODEL="llama-3.3-70b-versatile"   # optional
+export GROQ_MODEL="openai/gpt-oss-120b"   # optional
 python scripts/serve_trace_searchable.py
 ```
 
