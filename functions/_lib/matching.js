@@ -73,11 +73,20 @@ const BOILERPLATE_PREFIX = /^(?:blog\s+)?narrative\s*\|[^\n]*\n+/i;
 // above it is stripped, so it never outweighs or gets quoted as their own
 // words.
 const EDITOR_NOTE_PREFIX = /^editor.s note:[^\n]*\n+/i;
+// 93 records in the corpus end with the site's WordPress comment widget -
+// "Discussion / Leave a Reply Cancel reply / Your email address will not
+// be published..." (sometimes an English AND a French copy of the same
+// form back to back) - pure site chrome that got scraped along with the
+// real content. Always appears as a trailing block, so it's safe to cut
+// everything from that marker to the end rather than trying to match its
+// many small variations individually.
+const COMMENT_WIDGET_SUFFIX = /\n*discussion\s*\n+leave a reply[\s\S]*$/i;
 
 export function stripBoilerplate(text) {
   return (text || "")
     .replace(BOILERPLATE_PREFIX, "")
     .replace(EDITOR_NOTE_PREFIX, "")
+    .replace(COMMENT_WIDGET_SUFFIX, "")
     .trim();
 }
 

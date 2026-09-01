@@ -8,11 +8,13 @@
 const BOILERPLATE_PREFIX = /^(?:blog\s+)?narrative\s*\|[^\n]*\n+/i;
 const EDITOR_NOTE_PREFIX = /^editor.s note:[^\n]*\n+/i;
 const TITLE_MILESTONE_PREFIX = /^\d+(?:st|nd|rd|th)\s+narrative:\s*/i;
+const COMMENT_WIDGET_SUFFIX = /\n*discussion\s*\n+leave a reply[\s\S]*$/i;
 
 function stripBoilerplate(text) {
   return (text || "")
     .replace(BOILERPLATE_PREFIX, "")
     .replace(EDITOR_NOTE_PREFIX, "")
+    .replace(COMMENT_WIDGET_SUFFIX, "")
     .trim();
 }
 

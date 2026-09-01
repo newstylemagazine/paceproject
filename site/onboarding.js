@@ -1,5 +1,15 @@
 const PROFILE_STORAGE_KEY = "trace_profile_intake_v3";
 
+// Shown the instant the box clears after Go, before the real (specific,
+// AI-grounded) provocative question comes back - generic but still an
+// actual invitation, not just an empty box.
+const NEXT_TURN_PLACEHOLDERS = [
+  "What's still on your mind?",
+  "What's the next thing that's true right now?",
+  "Say the part you didn't say yet.",
+  "What would you add to that, if you're honest?",
+];
+
 const DATASETS = [
   { id: "tracemcgill", chunksPath: "../data/tracemcgill/chunks.jsonl" },
   { id: "tracephd", chunksPath: "../data/tracephd/chunks.jsonl" },
@@ -59,8 +69,17 @@ const readerNotesSave = document.getElementById("readerNotesSave");
 const readerNotesThread = document.getElementById("readerNotesThread");
 
 let corpus = [];
+// state.text is the full accumulated profile (everything committed across
+// past turns, plus whatever's currently drafted) - what buildProfileText()
+// and the About Me page's synthesis both read. state.committedText and
+// state.draftText are its two components, tracked separately so the box
+// can clear after each Go press (a "fresh thought" each turn, not one
+// long essay you have to keep editing) without losing anything - nothing
+// typed is ever discarded, it just moves from draft into committed.
 let state = {
   text: "",
+  committedText: "",
+  draftText: "",
   uploads: [],
   // Per-interview conversation threads: { [slug]: [{ role: "user"|"ai", text, ts }] }
   interviewNotes: {},
@@ -69,6 +88,14 @@ let state = {
   // (and no AI call happens) until the person presses Continue.
   noteDrafts: {},
 };
+
+function combineText(committed, draft) {
+  const c = (committed || "").trim();
+  const d = (draft || "").trim();
+  if (!c) return d;
+  if (!d) return c;
+  return `${c}\n\n${d}`;
+}
 let activeMatches = [];
 // Per-item fetched questions, keyed by index into activeMatches. Cleared
 // every time activeMatches is replaced by a fresh render.
@@ -148,11 +175,17 @@ const BOILERPLATE_PREFIX = /^(?:blog\s+)?narrative\s*\|[^\n]*\n+/i;
 // above it is stripped, so it never outweighs or gets quoted as their own
 // words.
 const EDITOR_NOTE_PREFIX = /^editor.s note:[^\n]*\n+/i;
+// 93 records end with the site's WordPress comment widget - "Discussion /
+// Leave a Reply Cancel reply / Your email address will not be
+// published..." - pure site chrome that got scraped along with the real
+// content. Always trailing, so it's safe to cut from that marker onward.
+const COMMENT_WIDGET_SUFFIX = /\n*discussion\s*\n+leave a reply[\s\S]*$/i;
 
 function stripBoilerplate(text) {
   return (text || "")
     .replace(BOILERPLATE_PREFIX, "")
     .replace(EDITOR_NOTE_PREFIX, "")
+    .replace(COMMENT_WIDGET_SUFFIX, "")
     .trim();
 }
 
@@ -512,7 +545,7 @@ async function fetchResonanceNote(match) {
     throw new Error(`Server responded ${response.status}`);
   }
   const result = await response.json();
-  return result.note || "";
+  return { note: result.note || "", question: result.question || "" };
 }
 
 // Spotlights the top match above the textbox. A real interview question is
@@ -531,11 +564,26 @@ function renderSpotlightNote(text) {
   `;
 }
 
+// The box used to just sit there holding whatever was last typed, with no
+// signal about what to write next. Setting the (now-empty, post-Go) box's
+// placeholder to a real, specific provocative question - grounded in
+// whatever was just surfaced - turns "type something, get a match" into
+// an actual back-and-forth: the archive always leaves you with something
+// to respond to. Only overwrites the placeholder if the box is still
+// empty, so it never yanks a question out from under someone mid-typing.
+function setNextPlaceholder(question) {
+  if (!question || storyInput.value.trim()) {
+    return;
+  }
+  storyInput.placeholder = question;
+}
+
 async function spotlightTopMatch(match) {
   if (match.question) {
     continuePrompt.classList.remove("is-loading");
     continuePrompt.classList.add("has-note");
     renderSpotlightNote(`${match.title} was asked: “${match.question}” - what's your own answer to that?`);
+    setNextPlaceholder(match.question);
     return;
   }
 
@@ -544,7 +592,7 @@ async function spotlightTopMatch(match) {
   continuePrompt.textContent = "Looking for a connection in the archive...";
 
   try {
-    const note = await fetchResonanceNote(match);
+    const { note, question } = await fetchResonanceNote(match);
     feedNotes.set(0, note);
     if (note) {
       renderSpotlightNote(note);
@@ -552,6 +600,7 @@ async function spotlightTopMatch(match) {
     } else {
       continuePrompt.textContent = "Keep writing - related voices will surface below.";
     }
+    setNextPlaceholder(question);
   } catch (error) {
     console.error("Could not fetch a resonance note:", error);
     continuePrompt.textContent = "Keep writing - related voices will surface below.";
@@ -818,14 +867,15 @@ function autoGrowStoryInput() {
 }
 
 function refreshWordCount() {
-  state.text = storyInput.value;
-  wordCount.textContent = `${countWords(state.text)} words`;
+  state.draftText = storyInput.value;
+  state.text = combineText(state.committedText, state.draftText);
+  wordCount.textContent = `${countWords(state.draftText)} words`;
   safeSetStorage(PROFILE_STORAGE_KEY, state);
   autoGrowStoryInput();
 
   clearTimeout(autoMatchTimer);
-  if (countWords(state.text) >= AUTO_MATCH_MIN_WORDS) {
-    autoMatchTimer = setTimeout(() => triggerMatch(state.text), AUTO_MATCH_IDLE_MS);
+  if (countWords(state.draftText) >= AUTO_MATCH_MIN_WORDS) {
+    autoMatchTimer = setTimeout(() => triggerMatch(state.draftText), AUTO_MATCH_IDLE_MS);
   }
 }
 
@@ -1002,6 +1052,30 @@ function wireEvents() {
 
     clearTimeout(autoMatchTimer);
     lastMatchedText = "";
+
+    // Commit this turn and clear the box BEFORE triggering the match -
+    // don't make anyone wait on the archive/AI round-trip just to get an
+    // empty box back. Nothing typed is lost: it moves from draft into
+    // committedText, which buildProfileText() and the About Me page still
+    // see in full. A rotating generic placeholder shows right away;
+    // clearing the box first (rather than after) means setNextPlaceholder()
+    // - called from inside triggerMatch/spotlightTopMatch, both for the
+    // synchronous real-question case and the async AI-note case - always
+    // sees an empty box and correctly overwrites the generic placeholder
+    // with the real, specific one, instead of the generic one clobbering
+    // it back if it happened to land after a synchronous match.
+    if (text) {
+      state.committedText = combineText(state.committedText, text);
+    }
+    state.draftText = "";
+    state.text = state.committedText;
+    storyInput.value = "";
+    storyInput.placeholder = NEXT_TURN_PLACEHOLDERS[Math.floor(Math.random() * NEXT_TURN_PLACEHOLDERS.length)];
+    wordCount.textContent = "0 words";
+    autoGrowStoryInput();
+    safeSetStorage(PROFILE_STORAGE_KEY, state);
+    storyInput.focus();
+
     triggerMatch(text);
   });
 }
@@ -1025,14 +1099,25 @@ function migrateInterviewNotes(raw) {
 async function initialize() {
   const saved = readStorage(PROFILE_STORAGE_KEY);
   if (saved && typeof saved === "object") {
-    state.text = String(saved.text || "");
+    // Back-compat: state used to be one flat "text" field with no
+    // committed/draft split - treat anyone's existing saved text as
+    // already-committed history rather than losing it, then start today's
+    // box empty and fresh.
+    if (typeof saved.committedText === "string" || typeof saved.draftText === "string") {
+      state.committedText = String(saved.committedText || "");
+      state.draftText = String(saved.draftText || "");
+    } else {
+      state.committedText = String(saved.text || "");
+      state.draftText = "";
+    }
+    state.text = combineText(state.committedText, state.draftText);
     state.uploads = Array.isArray(saved.uploads) ? saved.uploads : [];
     state.interviewNotes = migrateInterviewNotes(saved.interviewNotes);
     state.noteDrafts = saved.noteDrafts && typeof saved.noteDrafts === "object" ? saved.noteDrafts : {};
   }
 
-  storyInput.value = state.text;
-  wordCount.textContent = `${countWords(state.text)} words`;
+  storyInput.value = state.draftText;
+  wordCount.textContent = `${countWords(state.draftText)} words`;
   autoGrowStoryInput();
   renderUploads();
 

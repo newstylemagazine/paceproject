@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import http.server
 import json
 import os
@@ -123,7 +124,13 @@ RESONANCE_SYSTEM_PROMPT = (
     "there isn't one yet.\n\n"
     "Avoid shallow templates and generic phrasing. Be specific and grounded in real details. "
     "Plain and direct - not corporate, not HR, not therapist-speak, not a sentimental quote.\n\n"
-    'Return only valid JSON: {"note": "..."}'
+    "Also write ONE short, provocative, second-person question - under 20 words - that picks up "
+    "on the resonance you just noted and pushes the person to write their next fresh thought, "
+    "not a summary question ('how does that feel') and not one already answered by the note "
+    "itself. It should feel like a real challenge, worth sitting with, grounded in the specific "
+    "detail from the interviewee and (if user_text has anything to work with) what the person "
+    "actually wrote - never generic enough to ask anyone.\n\n"
+    'Return only valid JSON: {"note": "...", "question": "..."}'
 )
 
 # Unlike RESONANCE_SYSTEM_PROMPT (third person, never addresses the reader,
@@ -210,11 +217,17 @@ _BOILERPLATE_PREFIX = re.compile(r"^(?:blog\s+)?narrative\s*\|[^\n]*\n+", re.IGN
 # reflection starts - strip that too, the same way the date label above it
 # is stripped, so it never outweighs or gets quoted as their own words.
 _EDITOR_NOTE_PREFIX = re.compile(r"^editor.s note:[^\n]*\n+", re.IGNORECASE)
+# 93 records end with the site's WordPress comment widget - "Discussion /
+# Leave a Reply Cancel reply / Your email address will not be
+# published..." - pure site chrome scraped along with the real content.
+# Always trailing, so it's safe to cut from that marker to the end.
+_COMMENT_WIDGET_SUFFIX = re.compile(r"\n*discussion\s*\n+leave a reply[\s\S]*$", re.IGNORECASE)
 
 
 def strip_boilerplate(text: str) -> str:
     result = _BOILERPLATE_PREFIX.sub("", text or "")
     result = _EDITOR_NOTE_PREFIX.sub("", result)
+    result = _COMMENT_WIDGET_SUFFIX.sub("", result)
     return result.strip()
 
 
@@ -610,6 +623,28 @@ def fallback_resonance_note(excerpt_title: str, excerpt_text: str) -> str:
     return f'{who} described this: "{clipped}..." - a detail that sits close to what was just written.'
 
 
+# The real model's note now always comes with a second, distinct
+# provocative question (the site always prompts the next fresh thought) -
+# this is the rule-based safety net for that question specifically, when
+# no AI provider is reachable. Deliberately open rather than faking
+# specificity it doesn't have - picked by a stable hash of the excerpt so
+# the same match doesn't reshuffle its question on every reload.
+_FALLBACK_QUESTIONS = [
+    "What would it cost you to actually follow that thread?",
+    "Is that a door you're circling, or one you've already decided not to open?",
+    "What's the version of this you haven't let yourself say yet?",
+    "If that turned out to be true of you too, what would change?",
+    "What are you avoiding by not naming this directly?",
+]
+
+
+def fallback_provocative_question(seed_text: str) -> str:
+    seed = str(seed_text or "")
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    index = int(digest, 16) % len(_FALLBACK_QUESTIONS)
+    return _FALLBACK_QUESTIONS[index]
+
+
 def fallback_notes_reply(note_text: str, interview_title: str) -> str:
     # Rule-based safety net for the notes conversation when no AI provider
     # is reachable. Can't actually engage with a specific reference the way
@@ -699,9 +734,16 @@ def ask_question(payload: dict[str, Any]) -> dict[str, Any]:
     if result:
         _provider_name, parsed = result
         if isinstance(parsed, dict) and parsed.get("note"):
-            return {"note": str(parsed["note"]), "source": _provider_name}
+            question = str(parsed.get("question") or "").strip() or fallback_provocative_question(
+                excerpt_text or excerpt_title
+            )
+            return {"note": str(parsed["note"]), "question": question, "source": _provider_name}
 
-    return {"note": fallback_resonance_note(excerpt_title, excerpt_text), "source": "fallback"}
+    return {
+        "note": fallback_resonance_note(excerpt_title, excerpt_text),
+        "question": fallback_provocative_question(excerpt_text or excerpt_title),
+        "source": "fallback",
+    }
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

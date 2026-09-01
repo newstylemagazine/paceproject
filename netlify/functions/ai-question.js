@@ -1,7 +1,7 @@
 import { callTextProvider } from "./_lib/providers.js";
 import { stripBoilerplate } from "./_lib/matching.js";
 import { RESONANCE_SYSTEM_PROMPT } from "./_lib/prompts.js";
-import { fallbackResonanceNote } from "./_lib/fallback.js";
+import { fallbackResonanceNote, fallbackProvocativeQuestion } from "./_lib/fallback.js";
 
 function jsonResponse(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -41,10 +41,17 @@ async function getResonanceNote(env, payload) {
   ]);
 
   if (result && result.parsed && typeof result.parsed === "object" && result.parsed.note) {
-    return { note: String(result.parsed.note), source: result.providerName };
+    const question = typeof result.parsed.question === "string" && result.parsed.question.trim()
+      ? result.parsed.question.trim()
+      : fallbackProvocativeQuestion(excerptText || excerptTitle);
+    return { note: String(result.parsed.note), question, source: result.providerName };
   }
 
-  return { note: fallbackResonanceNote(excerptTitle, excerptText), source: "fallback" };
+  return {
+    note: fallbackResonanceNote(excerptTitle, excerptText),
+    question: fallbackProvocativeQuestion(excerptText || excerptTitle),
+    source: "fallback",
+  };
 }
 
 export default async (req) => {

@@ -9,7 +9,7 @@
 import { buildRecommendations, stripBoilerplate } from "../functions/_lib/matching.js";
 import { callTextProvider, describeImage } from "../functions/_lib/providers.js";
 import { SYNTHESIS_SYSTEM_PROMPT, RESONANCE_SYSTEM_PROMPT, NOTES_REPLY_SYSTEM_PROMPT } from "../functions/_lib/prompts.js";
-import { fallbackAboutPayload, fallbackResonanceNote, fallbackNotesReply } from "../functions/_lib/fallback.js";
+import { fallbackAboutPayload, fallbackResonanceNote, fallbackProvocativeQuestion, fallbackNotesReply } from "../functions/_lib/fallback.js";
 
 const MAX_IMAGE_DESCRIPTIONS = 2;
 const MAX_TEXT_EXCERPT_CHARS = 3000;
@@ -203,10 +203,17 @@ async function getResonanceNote(env, payload) {
   ]);
 
   if (result && result.parsed && typeof result.parsed === "object" && result.parsed.note) {
-    return { note: String(result.parsed.note), source: result.providerName };
+    const question = typeof result.parsed.question === "string" && result.parsed.question.trim()
+      ? result.parsed.question.trim()
+      : fallbackProvocativeQuestion(excerptText || excerptTitle);
+    return { note: String(result.parsed.note), question, source: result.providerName };
   }
 
-  return { note: fallbackResonanceNote(excerptTitle, excerptText), source: "fallback" };
+  return {
+    note: fallbackResonanceNote(excerptTitle, excerptText),
+    question: fallbackProvocativeQuestion(excerptText || excerptTitle),
+    source: "fallback",
+  };
 }
 
 async function getNotesReply(env, payload) {

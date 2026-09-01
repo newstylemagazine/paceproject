@@ -75,7 +75,13 @@ export const RESONANCE_SYSTEM_PROMPT = [
   "there isn't one yet.\n\n",
   "Avoid shallow templates and generic phrasing. Be specific and grounded in real details. ",
   "Plain and direct - not corporate, not HR, not therapist-speak, not a sentimental quote.\n\n",
-  'Return only valid JSON: {"note": "..."}',
+  "Also write ONE short, provocative, second-person question - under 20 words - that picks up ",
+  "on the resonance you just noted and pushes the person to write their next fresh thought, ",
+  "not a summary question ('how does that feel') and not one already answered by the note ",
+  "itself. It should feel like a real challenge, worth sitting with, grounded in the specific ",
+  "detail from the interviewee and (if user_text has anything to work with) what the person ",
+  "actually wrote - never generic enough to ask anyone.\n\n",
+  'Return only valid JSON: {"note": "...", "question": "..."}',
 ].join("");
 
 // Unlike RESONANCE_SYSTEM_PROMPT (third person, never addresses the

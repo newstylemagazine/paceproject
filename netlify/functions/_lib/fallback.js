@@ -74,3 +74,28 @@ export function fallbackResonanceNote(excerptTitle, excerptText) {
   }
   return `${who} described this: "${clipped}..." - a detail that sits close to what was just written.`;
 }
+
+// The real model's note now always comes with a second, distinct
+// provocative question (per the site always prompting the next fresh
+// thought) - this is the rule-based safety net for that question
+// specifically, when no AI provider is reachable. Can't ground it in
+// anything specific without a model, so it stays deliberately open rather
+// than faking specificity it doesn't have - a handful of genuinely
+// different options, picked by a stable hash of the excerpt so the same
+// match doesn't reshuffle on every reload.
+const FALLBACK_QUESTIONS = [
+  "What would it cost you to actually follow that thread?",
+  "Is that a door you're circling, or one you've already decided not to open?",
+  "What's the version of this you haven't let yourself say yet?",
+  "If that turned out to be true of you too, what would change?",
+  "What are you avoiding by not naming this directly?",
+];
+
+export function fallbackProvocativeQuestion(seedText) {
+  const seed = String(seedText || "");
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return FALLBACK_QUESTIONS[hash % FALLBACK_QUESTIONS.length];
+}
