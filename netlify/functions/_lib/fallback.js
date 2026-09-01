@@ -11,7 +11,7 @@ export function fallbackAboutPayload(text, recommendations) {
 
   const kindred = recommendations.slice(0, 3).map((rec) => ({
     title: rec.title || "A voice from the archive",
-    why: "Their path crosses a few of the same words you just used.",
+    why: "Something in what they lived through sits close to what you just wrote.",
     quote: rec.snippet || "",
     url: rec.url || "#",
   }));

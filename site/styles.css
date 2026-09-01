@@ -673,6 +673,16 @@ mark {
   box-shadow: 0 0 0 3px rgba(13, 13, 13, 0.08);
 }
 
+.idp-answer-area textarea.field-error {
+  border-color: var(--brand);
+}
+
+.idp-answer-error {
+  margin: -0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--brand);
+}
+
 #idpSaveButton {
   background: var(--brand);
   color: white;

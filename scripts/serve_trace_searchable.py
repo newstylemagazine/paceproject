@@ -454,7 +454,7 @@ def fallback_about_payload(text: str, recommendations: list[dict[str, Any]]) -> 
     for rec in recommendations[:3]:
         kindred.append({
             "title": rec.get("title") or "A voice from the archive",
-            "why": "Their path crosses a few of the same words you just used.",
+            "why": "Something in what they lived through sits close to what you just wrote.",
             "quote": rec.get("snippet") or "",
             "url": rec.get("url") or "#",
         })
