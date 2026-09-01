@@ -1163,10 +1163,11 @@ mark {
 }
 
 .reader-chunk.is-highlighted {
-  background: var(--highlight-strong);
+  background: rgba(200, 29, 51, 0.08);
   padding: 0.6rem 0.6rem 0.1rem;
   margin-left: -0.6rem;
   margin-right: -0.6rem;
+  border-radius: 6px;
   transition: background 1.8s ease;
 }
 

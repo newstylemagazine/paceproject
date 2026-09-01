@@ -482,11 +482,31 @@ let lastMatchedText = "";
 const AUTO_MATCH_IDLE_MS = 1400;
 const AUTO_MATCH_MIN_WORDS = 6;
 
+// state.text alone used to be all that got sent to the resonance-note
+// endpoint - so attaching a CV with nothing typed (now a supported way to
+// start, per the Go-button fix) meant the model received an empty
+// user_text and, with nothing real to work with, invented a plausible-
+// sounding connection out of thin air instead of admitting there wasn't
+// one. This folds upload text in too, the same way buildMatches() already
+// does for scoring, so the model has the actual CV/essay content to
+// ground a note in - or, per the prompt, to honestly decline drawing a
+// forced connection if there still isn't enough there.
+const MAX_PROFILE_TEXT_CHARS = 6000;
+function buildProfileText() {
+  const parts = [state.text.trim()];
+  for (const item of state.uploads) {
+    if (item.textExcerpt) {
+      parts.push(`[From ${item.name}]\n${item.textExcerpt}`);
+    }
+  }
+  return parts.filter(Boolean).join("\n\n").slice(0, MAX_PROFILE_TEXT_CHARS);
+}
+
 async function fetchResonanceNote(match) {
   const response = await fetch("/api/ai-question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: state.text, match }),
+    body: JSON.stringify({ text: buildProfileText(), match }),
   });
   if (!response.ok) {
     throw new Error(`Server responded ${response.status}`);
