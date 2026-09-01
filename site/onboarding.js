@@ -766,10 +766,18 @@ async function sendNoteTurn() {
 
 function triggerMatch(text) {
   const trimmed = text.trim();
-  if (!trimmed || trimmed === lastMatchedText) {
+  // A CV or essay dropped in with no typed text is a completely normal way
+  // to start (the homepage explicitly invites it) - matching used to
+  // require non-empty typed text, so "attach a file, press Go" with
+  // nothing typed silently did nothing. Uploads alone are now enough to
+  // trigger a match; buildMatches already folds upload text into the
+  // scoring terms.
+  const hasContent = Boolean(trimmed) || state.uploads.length > 0;
+  const matchKey = trimmed || `__uploads:${state.uploads.map((item) => item.id).join(",")}`;
+  if (!hasContent || matchKey === lastMatchedText) {
     return;
   }
-  lastMatchedText = trimmed;
+  lastMatchedText = matchKey;
   const matches = buildMatches(trimmed, state.uploads);
   renderQuoteFeed(matches);
   if (matches.length) {
@@ -965,9 +973,9 @@ function wireEvents() {
 
   letsGoButton.addEventListener("click", () => {
     const text = storyInput.value.trim();
-    if (!text) {
+    if (!text && !state.uploads.length) {
       continuePrompt.classList.remove("has-note", "is-loading");
-      continuePrompt.textContent = "Write a few honest lines first, then press Go.";
+      continuePrompt.textContent = "Write a few honest lines, or attach a file, then press Go.";
       storyInput.focus();
       return;
     }
