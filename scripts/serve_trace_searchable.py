@@ -481,6 +481,8 @@ def fallback_about_payload(text: str, recommendations: list[dict[str, Any]]) -> 
             "why": "Something in what they lived through sits close to what you just wrote.",
             "quote": rec.get("snippet") or "",
             "url": rec.get("url") or "#",
+            "slug": rec.get("slug"),
+            "datasetId": rec.get("datasetId"),
         })
 
     return {
@@ -590,6 +592,8 @@ def synthesize(payload: dict[str, Any]) -> dict[str, Any]:
                     "why": item.get("why") or "",
                     "quote": rec["snippet"],
                     "url": rec["url"],
+                    "slug": rec.get("slug"),
+                    "datasetId": rec.get("datasetId"),
                 })
             about = {
                 "mirror_headline": parsed.get("mirror_headline") or "",

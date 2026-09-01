@@ -91,12 +91,23 @@ function renderKindredVoices(container, voices) {
     card.className = "rec-card reveal-item";
     card.style.animationDelay = `${index * 90}ms`;
 
+    // This used to link straight to the interview's original external
+    // page (tracemcgill.com / tracephd.com) - fine when that page happens
+    // to still be up, dead when it's moved or gone. Point at the site's
+    // own transcript reader instead (same one search.html uses), which
+    // renders the interview from the local corpus data and can't go
+    // dead. Only fall back to the external URL if a slug/dataset is
+    // somehow missing (e.g. a cached response from before this fix).
+    const readHref = voice.slug && voice.datasetId
+      ? `transcript.html?source=${encodeURIComponent(voice.datasetId)}&slug=${encodeURIComponent(voice.slug)}`
+      : voice.url || "#";
+
     card.innerHTML = `
       <h3>${voice.title || "Interview"}</h3>
       ${voice.why ? `<p class="rec-why">${voice.why}</p>` : ""}
       ${voice.quote ? `<p class="rec-quote">"${voice.quote}"</p>` : ""}
       <div class="actions">
-        <a href="${voice.url || "#"}" target="_blank" rel="noreferrer">Read their full interview</a>
+        <a href="${readHref}">Read their full interview</a>
       </div>
     `;
 

@@ -341,9 +341,6 @@ function renderResults(query) {
 
   statusNode.textContent = `Found ${filtered.length} results for "${query}". Showing top ${visible.length}.`;
   summarizeInsights(visible, terms);
-  
-  // Show IDP prompt based on search terms
-  showIDPPrompt(terms);
 
   if (!visible.length) {
     const empty = document.createElement("article");
@@ -525,92 +522,6 @@ queryInput.addEventListener("keydown", (event) => {
 searchButton.addEventListener("click", () => renderResults(queryInput.value.trim()));
 sortMode.addEventListener("change", () => renderResults(queryInput.value.trim()));
 limitSelect.addEventListener("change", () => renderResults(queryInput.value.trim()));
-
-// IDP Integration
-const idpSidebar = document.getElementById("idpSidebar");
-const idpQuestion = document.getElementById("idpQuestion");
-const idpHint = document.getElementById("idpHint");
-const idpAnswer = document.getElementById("idpAnswer");
-const idpSaveButton = document.getElementById("idpSaveButton");
-const idpCloseSidebar = document.getElementById("idpCloseSidebar");
-
-let currentIDPField = null;
-let currentGoalId = null;
-// Auto-popping this sidebar open on every single search - even repeat
-// searches for the same topic - read as naggy in testing (it interrupted
-// someone just browsing the archive out of curiosity). Now it only
-// introduces itself once per visit; after that, the "IDP" link in the top
-// nav (and the "View Full IDP" link inside the sidebar itself) is how
-// people get back to it deliberately.
-let idpIntroducedThisSession = false;
-
-function showIDPPrompt(terms) {
-  if (idpIntroducedThisSession) return;
-  const prompt = getIDPPrompt(terms);
-  if (!prompt) return;
-
-  idpQuestion.textContent = prompt.question;
-  idpHint.textContent = prompt.hint;
-  idpAnswer.value = "";
-  currentIDPField = prompt.field;
-  currentGoalId = getNextEmptyGoalSlot(getIDP()) + 1;
-
-  idpSidebar.classList.add("active");
-  document.querySelector('.main-content-wrapper').classList.add('with-sidebar');
-  idpAnswer.focus();
-  idpIntroducedThisSession = true;
-}
-
-function hideIDPSidebar() {
-  idpSidebar.classList.remove("active");
-  document.querySelector('.main-content-wrapper').classList.remove('with-sidebar');
-  idpAnswer.value = "";
-  clearIdpAnswerError();
-}
-
-function clearIdpAnswerError() {
-  const existing = document.getElementById("idpAnswerError");
-  if (existing) existing.remove();
-  idpAnswer.classList.remove("field-error");
-}
-
-function showIdpAnswerError(message) {
-  clearIdpAnswerError();
-  idpAnswer.classList.add("field-error");
-  const el = document.createElement("p");
-  el.id = "idpAnswerError";
-  el.className = "idp-answer-error";
-  el.textContent = message;
-  idpAnswer.insertAdjacentElement("afterend", el);
-}
-
-idpAnswer.addEventListener("input", clearIdpAnswerError);
-
-idpSaveButton.addEventListener("click", () => {
-  const answer = idpAnswer.value.trim();
-  if (!answer) {
-    showIdpAnswerError("Enter an answer first.");
-    return;
-  }
-  clearIdpAnswerError();
-  
-  updateIDPField(currentGoalId, currentIDPField, answer);
-  idpSaveButton.textContent = "Saved!";
-  setTimeout(() => {
-    idpSaveButton.textContent = "Save";
-    // Keep sidebar open, just clear the answer
-    idpAnswer.value = "";
-    // Move to next question if available
-    const idp = getIDP();
-    const nextSlot = getNextEmptyGoalSlot(idp);
-    if (nextSlot !== -1) {
-      currentGoalId = nextSlot + 1;
-      // Could load next question here if desired
-    }
-  }, 1000);
-});
-
-idpCloseSidebar.addEventListener("click", hideIDPSidebar);
 
 initialize().catch((error) => {
   statusNode.textContent = `Failed to initialize search: ${error.message}`;

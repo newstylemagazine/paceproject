@@ -14,6 +14,8 @@ export function fallbackAboutPayload(text, recommendations) {
     why: "Something in what they lived through sits close to what you just wrote.",
     quote: rec.snippet || "",
     url: rec.url || "#",
+    slug: rec.slug,
+    datasetId: rec.datasetId,
   }));
 
   return {

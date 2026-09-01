@@ -141,6 +141,8 @@ async function synthesize(env, requestUrl, payload) {
         why: item.why || "",
         quote: rec.snippet,
         url: rec.url,
+        slug: rec.slug,
+        datasetId: rec.datasetId,
       });
     }
     about = {
