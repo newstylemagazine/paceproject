@@ -217,7 +217,13 @@ async function generate(profile, hash) {
   }
 }
 
+// The homepage's progress bar counts interactions since the reflection was
+// last looked at - visiting this page empties it so it starts filling again.
+const REFLECTION_PROGRESS_KEY = "trace_reflection_progress_v1";
+
 function initialize() {
+  safeSetStorage(REFLECTION_PROGRESS_KEY, { count: 0, lastViewedAt: Date.now() });
+
   const profile = readStorage(PROFILE_STORAGE_KEY);
   const text = String(profile?.text || "").trim();
 
