@@ -892,6 +892,178 @@ mark {
   animation: skeleton-pulse 1.3s ease-in-out infinite;
 }
 
+/* ── Reflection progress bar: fills with each interaction ─────────────── */
+
+.reflection-bar {
+  width: min(640px, 92%);
+  margin: -0.75rem auto 1.4rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.reflection-bar[hidden] {
+  display: none;
+}
+
+.reflection-bar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--mark-bg);
+  overflow: hidden;
+}
+
+.reflection-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--highlight-strong);
+  transition: width 0.4s ease, background 0.3s ease;
+}
+
+.reflection-bar.is-ready .reflection-bar-fill {
+  background: var(--brand);
+}
+
+.reflection-bar-label {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.reflection-bar.is-ready .reflection-bar-label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.reflection-bar-label a {
+  color: var(--brand-dark);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.reflection-bar-label a:hover {
+  color: var(--brand);
+}
+
+.nav-link.has-update {
+  position: relative;
+  border-color: var(--brand);
+}
+
+.nav-link.has-update::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 2px solid #fff;
+}
+
+/* ── Home-page conversation: messages stack above the box, like texting ── */
+
+.chat-thread {
+  width: min(640px, 92%);
+  margin: 0 auto 0.6rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.25rem 0.1rem 0.5rem;
+  scroll-behavior: smooth;
+}
+
+.chat-thread[hidden] {
+  display: none;
+}
+
+.chat-turn {
+  max-width: 85%;
+  padding: 0.65rem 0.9rem;
+  border-radius: 16px;
+  line-height: 1.5;
+  animation: chat-turn-in 0.2s ease-out;
+}
+
+.chat-turn p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-turn-user {
+  align-self: flex-end;
+  background: var(--highlight-soft);
+  color: var(--text);
+  border-bottom-right-radius: 4px;
+}
+
+.chat-turn-ai {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid var(--stroke);
+  border-left: 3px solid var(--brand);
+  border-bottom-left-radius: 4px;
+  color: var(--text);
+  font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+.chat-turn-pending {
+  color: var(--muted);
+  animation: skeleton-pulse 1.3s ease-in-out infinite;
+}
+
+.chat-cta {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--brand-dark);
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.chat-cta:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.chat-cta:hover,
+.chat-cta:focus-visible {
+  color: var(--brand);
+  transform: translateX(4px);
+}
+
+@keyframes chat-turn-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .chat-thread {
+    width: 96%;
+  }
+
+  .chat-turn {
+    max-width: 92%;
+  }
+}
+
 /* ── Sleek in-app reader: slide-in drawer for a full transcript ─────────── */
 
 .reader-panel {
