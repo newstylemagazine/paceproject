@@ -57,6 +57,7 @@ const uploadTray = document.getElementById("uploadTray");
 const intakeStage = document.getElementById("intakeStage");
 const quoteFeed = document.getElementById("quoteFeed");
 const continuePrompt = document.getElementById("continuePrompt");
+const chatThread = document.getElementById("chatThread");
 const readerPanel = document.getElementById("readerPanel");
 const readerBackdrop = document.getElementById("readerBackdrop");
 const readerTitle = document.getElementById("readerTitle");
@@ -87,6 +88,8 @@ let state = {
   // doesn't lose it - but nothing is added to the actual conversation
   // (and no AI call happens) until the person presses Continue.
   noteDrafts: {},
+  // The home-page conversation: [{ role: "user"|"ai", text, match?, pending? }]
+  thread: [],
 };
 
 function combineText(committed, draft) {
@@ -583,70 +586,142 @@ async function fetchResonanceNote(match) {
   return { note: result.note || "", question: result.question || "" };
 }
 
-// Spotlights the top match above the textbox. A real interview question is
-// used whenever the match has one - it's literally the interviewee's own
-// question, an invitation to answer it too, not the AI inventing a
-// conversational turn. Only narrative-only excerpts (no discrete question)
-// fall back to an AI-written connecting note.
-// The hover-only arrow used to be the only clickability cue on the
-// spotlight - invisible until you happened to mouse over it, and useless
-// on touch. This renders a persistent CTA line underneath, same as the
-// card grid below it, so it reads as clickable at rest, not just on hover.
-function renderSpotlightNote(text) {
-  continuePrompt.innerHTML = `
-    <span class="spotlight-text">${escapeHtml(text)}</span>
-    <span class="spotlight-cta">Read the full interview &rarr;</span>
-  `;
+// ── Chat thread ───────────────────────────────────────────────────────────
+// The archive's reply used to replace a single line above the box (and
+// its question became the box's placeholder), and auto-matching while
+// typing could swap in a new question mid-sentence - so answering it
+// meant deleting what you'd written and starting over. Now it works like
+// texting: each Go posts what you wrote as a bubble, the archive answers
+// with its own bubble, and the whole exchange stays visible, scrolling up
+// above the box. The archive only speaks after Go, never while typing.
+
+// ── Reflection progress bar ───────────────────────────────────────────────
+// Counts interactions (each Go, each note sent in the reader) since the
+// reflection page was last opened. At REFLECTION_READY_AT the bar turns
+// into a nudge to go look; about-me.js resets the count on visit.
+const REFLECTION_PROGRESS_KEY = "trace_reflection_progress_v1";
+const REFLECTION_READY_AT = 10;
+const reflectionBar = document.getElementById("reflectionBar");
+const navReflection = document.getElementById("navReflection");
+
+function readReflectionCount() {
+  const saved = readStorage(REFLECTION_PROGRESS_KEY);
+  return Math.max(0, Number(saved && saved.count) || 0);
 }
 
-// The box used to just sit there holding whatever was last typed, with no
-// signal about what to write next. Setting the (now-empty, post-Go) box's
-// placeholder to a real, specific provocative question - grounded in
-// whatever was just surfaced - turns "type something, get a match" into
-// an actual back-and-forth: the archive always leaves you with something
-// to respond to. Only overwrites the placeholder if the box is still
-// empty, so it never yanks a question out from under someone mid-typing.
-function setNextPlaceholder(question) {
-  if (!question || storyInput.value.trim()) {
-    return;
-  }
-  storyInput.placeholder = question;
+function renderReflectionBar() {
+  if (!reflectionBar) return;
+  const count = readReflectionCount();
+  const ready = count >= REFLECTION_READY_AT;
+  reflectionBar.hidden = count === 0;
+  reflectionBar.classList.toggle("is-ready", ready);
+  if (navReflection) navReflection.classList.toggle("has-update", ready);
+
+  const shown = Math.min(count, REFLECTION_READY_AT);
+  const track = reflectionBar.querySelector(".reflection-bar-track");
+  track.setAttribute("aria-valuenow", String(shown));
+  reflectionBar.querySelector(".reflection-bar-fill").style.width = `${(shown / REFLECTION_READY_AT) * 100}%`;
+  reflectionBar.querySelector(".reflection-bar-label").innerHTML = ready
+    ? `Your reflection has plenty to work with now. <a href="about-me.html">See your reflection &rarr;</a>`
+    : `Building your reflection: ${shown} of ${REFLECTION_READY_AT}`;
 }
 
-async function spotlightTopMatch(match) {
+function bumpReflectionProgress() {
+  const saved = readStorage(REFLECTION_PROGRESS_KEY) || {};
+  safeSetStorage(REFLECTION_PROGRESS_KEY, { ...saved, count: readReflectionCount() + 1 });
+  renderReflectionBar();
+}
+
+// Just what the reader needs to reopen an interview from an old bubble.
+function compactMatch(match) {
+  return {
+    slug: match.slug,
+    chunkId: match.chunkId,
+    title: match.title,
+    question: match.question,
+    url: match.url,
+  };
+}
+
+function renderThread() {
+  if (!chatThread) return;
+  const thread = state.thread || [];
+  chatThread.hidden = thread.length === 0;
+  if (continuePrompt) continuePrompt.hidden = thread.length > 0;
+
+  chatThread.innerHTML = thread
+    .map((turn, index) => {
+      if (turn.role === "user") {
+        return `<div class="chat-turn chat-turn-user"><p>${escapeHtml(turn.text)}</p></div>`;
+      }
+      if (turn.pending) {
+        return `<div class="chat-turn chat-turn-ai chat-turn-pending"><p>Looking for a connection in the archive...</p></div>`;
+      }
+      const cta = turn.match
+        ? `<button type="button" class="chat-cta" data-turn-index="${index}">Read ${escapeHtml(turn.match.title.split(",")[0])}'s full interview &rarr;</button>`
+        : "";
+      return `<div class="chat-turn chat-turn-ai"><p>${escapeHtml(turn.text)}</p>${cta}</div>`;
+    })
+    .join("");
+
+  chatThread.scrollTop = chatThread.scrollHeight;
+  // Again after layout settles (fonts, restored threads on reload).
+  requestAnimationFrame(() => {
+    chatThread.scrollTop = chatThread.scrollHeight;
+  });
+}
+
+function pushTurn(turn) {
+  state.thread = [...(state.thread || []), turn];
+  safeSetStorage(PROFILE_STORAGE_KEY, state);
+  renderThread();
+  return state.thread.length - 1;
+}
+
+function replaceTurn(index, turn) {
+  state.thread = (state.thread || []).map((existing, i) => (i === index ? turn : existing));
+  safeSetStorage(PROFILE_STORAGE_KEY, state);
+  renderThread();
+}
+
+// A real interview question is used whenever the top match has one - it's
+// literally the interviewee's own question, an invitation to answer it
+// too. Only narrative-only excerpts (no discrete question) fall back to an
+// AI-written connecting note.
+async function replyWithTopMatch(match) {
   if (match.question) {
-    continuePrompt.classList.remove("is-loading");
-    continuePrompt.classList.add("has-note");
-    renderSpotlightNote(`${match.title} was asked: “${match.question}” - what's your own answer to that?`);
-    setNextPlaceholder(match.question);
+    pushTurn({
+      role: "ai",
+      text: `${match.title} was asked: “${match.question}” What's your own answer to that?`,
+      match: compactMatch(match),
+    });
     return;
   }
 
-  continuePrompt.classList.add("is-loading");
-  continuePrompt.classList.remove("has-note");
-  continuePrompt.textContent = "Looking for a connection in the archive...";
-
+  const pendingIndex = pushTurn({ role: "ai", pending: true });
   try {
     const { note, question } = await fetchResonanceNote(match);
     feedNotes.set(0, note);
-    if (note) {
-      renderSpotlightNote(note);
-      continuePrompt.classList.add("has-note");
-    } else {
-      continuePrompt.textContent = "Keep writing - related voices will surface below.";
-    }
-    setNextPlaceholder(question);
+    const text = [note, question].filter(Boolean).join(" ");
+    replaceTurn(pendingIndex, {
+      role: "ai",
+      text: text || "Keep going - related voices are surfacing below.",
+      match: compactMatch(match),
+    });
   } catch (error) {
     console.error("Could not fetch a resonance note:", error);
-    continuePrompt.textContent = "Keep writing - related voices will surface below.";
-  } finally {
-    continuePrompt.classList.remove("is-loading");
+    replaceTurn(pendingIndex, {
+      role: "ai",
+      text: `This brought up ${match.title}. Keep going - related voices are surfacing below.`,
+      match: compactMatch(match),
+    });
   }
 }
 
 let readerObserver = null;
 let currentReaderSlug = null;
 let currentReaderIndex = null;
+let currentReaderMatch = null;
 let currentReaderChunks = [];
 let draftSaveTimer = null;
 let notesStatusTimer = null;
@@ -734,11 +809,18 @@ function appendPendingThinkingBubble() {
 }
 
 function openReader(index) {
-  const match = activeMatches[index];
+  openReaderForMatch(activeMatches[index], index);
+}
+
+// Chat bubbles from earlier turns point at matches that may no longer be
+// in activeMatches (each Go replaces the feed), so the reader can also be
+// opened straight from a saved match object.
+function openReaderForMatch(match, index = null) {
   if (!match || !readerPanel) return;
 
   currentReaderSlug = match.slug;
   currentReaderIndex = index;
+  currentReaderMatch = match;
 
   if (readerTitle) readerTitle.textContent = match.title;
   if (readerSourceLink) readerSourceLink.href = match.url || "#";
@@ -780,6 +862,7 @@ function closeReader() {
   }
   currentReaderSlug = null;
   currentReaderIndex = null;
+  currentReaderMatch = null;
   currentReaderChunks = [];
 }
 
@@ -831,7 +914,7 @@ async function sendNoteTurn() {
   if (!text) return;
 
   const slug = currentReaderSlug;
-  const match = activeMatches[currentReaderIndex];
+  const match = currentReaderMatch;
   const priorThread = getNotesThread(slug).map((turn) => ({ role: turn.role, text: turn.text }));
 
   state.interviewNotes = state.interviewNotes || {};
@@ -842,6 +925,7 @@ async function sendNoteTurn() {
 
   readerNotesInput.value = "";
   renderNotesThread(slug);
+  bumpReflectionProgress();
 
   isAwaitingNotesReply = true;
   readerNotesSave.disabled = true;
@@ -868,7 +952,9 @@ async function sendNoteTurn() {
   }
 }
 
-function triggerMatch(text) {
+// reply: true only for Go - the idle auto-match while typing just
+// refreshes the voices below, so nothing changes above the box mid-thought.
+function triggerMatch(text, { reply = false } = {}) {
   const trimmed = text.trim();
   // A CV or essay dropped in with no typed text is a completely normal way
   // to start (the homepage explicitly invites it) - matching used to
@@ -884,11 +970,13 @@ function triggerMatch(text) {
   lastMatchedText = matchKey;
   const matches = buildMatches(trimmed, state.uploads);
   renderQuoteFeed(matches);
+  if (!reply) {
+    return;
+  }
   if (matches.length) {
-    spotlightTopMatch(matches[0]);
+    replyWithTopMatch(matches[0]);
   } else {
-    continuePrompt.classList.remove("is-loading", "has-note");
-    continuePrompt.textContent = "No close matches yet - keep writing and the archive will respond.";
+    pushTurn({ role: "ai", text: "No close matches yet - keep writing and the archive will respond." });
   }
 }
 
@@ -1027,16 +1115,24 @@ function wireEvents() {
     openReader(index);
   });
 
-  // The spotlight above the textbox points at a specific interview - make
-  // it open the same reader, so following the connection through feels
-  // like one continuous action.
-  if (continuePrompt) {
-    continuePrompt.addEventListener("click", () => {
-      if (activeMatches.length && continuePrompt.classList.contains("has-note")) {
-        openReader(0);
-      }
+  // Each archive bubble points at a specific interview - its button opens
+  // the same reader, even for bubbles from earlier turns.
+  if (chatThread) {
+    chatThread.addEventListener("click", (event) => {
+      const button = event.target instanceof HTMLElement ? event.target.closest(".chat-cta") : null;
+      if (!button) return;
+      const turn = (state.thread || [])[Number.parseInt(button.dataset.turnIndex || "", 10)];
+      if (turn && turn.match) openReaderForMatch(turn.match);
     });
   }
+
+  // Enter sends, Shift+Enter makes a new line - like texting.
+  storyInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      if (!letsGoButton.disabled) letsGoButton.click();
+    }
+  });
 
   if (readerClose) {
     readerClose.addEventListener("click", () => {
@@ -1081,8 +1177,9 @@ function wireEvents() {
   letsGoButton.addEventListener("click", () => {
     const text = storyInput.value.trim();
     if (!text && !state.uploads.length) {
-      continuePrompt.classList.remove("has-note", "is-loading");
-      continuePrompt.textContent = "Write a few honest lines, or attach a file, then press Go.";
+      if (!(state.thread || []).length) {
+        continuePrompt.textContent = "Write a few honest lines, or attach a file, then press Go.";
+      }
       storyInput.focus();
       return;
     }
@@ -1113,8 +1210,17 @@ function wireEvents() {
     safeSetStorage(PROFILE_STORAGE_KEY, state);
     storyInput.focus();
 
-    triggerMatch(text);
+    pushTurn({
+      role: "user",
+      text: text || `Attached: ${state.uploads.map((item) => item.name).join(", ")}`,
+    });
+    triggerMatch(text, { reply: true });
+    bumpReflectionProgress();
   });
+
+  // Coming back from the reflection page with the Back button can restore
+  // this page from cache with the old count - re-read it.
+  window.addEventListener("pageshow", renderReflectionBar);
 }
 
 // Older saved state had interviewNotes[slug] as a plain string (a single
@@ -1151,7 +1257,12 @@ async function initialize() {
     state.uploads = Array.isArray(saved.uploads) ? saved.uploads : [];
     state.interviewNotes = migrateInterviewNotes(saved.interviewNotes);
     state.noteDrafts = saved.noteDrafts && typeof saved.noteDrafts === "object" ? saved.noteDrafts : {};
+    // A pending bubble left over from a reload mid-request would spin
+    // forever - drop it.
+    state.thread = Array.isArray(saved.thread) ? saved.thread.filter((turn) => turn && !turn.pending) : [];
   }
+  renderThread();
+  renderReflectionBar();
 
   storyInput.value = state.draftText;
   wordCount.textContent = `${countWords(state.draftText)} words`;
