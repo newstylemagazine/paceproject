@@ -22,6 +22,30 @@ function cleanTitle(title) {
   return String(title || "").replace(TITLE_MILESTONE_PREFIX, "").trim();
 }
 
+// Same as onboarding.js: split essay-style interviews that were saved as
+// one giant chunk into paragraph groups, so their length alone doesn't
+// make them match every query.
+const LONG_NARRATIVE_CHARS = 2000;
+const NARRATIVE_PART_CHARS = 1200;
+
+function splitLongNarrative(record) {
+  const text = record.text || "";
+  if (record.question || text.length <= LONG_NARRATIVE_CHARS) {
+    return [record];
+  }
+  const parts = [];
+  let buffer = "";
+  for (const paragraph of text.split(/\n\s*\n/)) {
+    if (buffer && buffer.length + paragraph.length > NARRATIVE_PART_CHARS) {
+      parts.push(buffer);
+      buffer = "";
+    }
+    buffer += (buffer ? "\n\n" : "") + paragraph;
+  }
+  if (buffer) parts.push(buffer);
+  return parts.map((part, index) => ({ ...record, id: `${record.id}~part-${index + 1}`, text: part }));
+}
+
 const DATASETS = [
   {
     id: "tracemcgill",
@@ -430,14 +454,16 @@ async function loadDataset(dataset) {
     throw new Error(`Could not load ${dataset.chunksPath}: HTTP ${response.status}`);
   }
   const text = await response.text();
-  return parseJsonLines(text).map((entry) => ({
-    ...entry,
-    title: cleanTitle(entry.title),
-    text: stripBoilerplate(entry.text),
-    source: dataset.name,
-    datasetId: dataset.id,
-    isYoutube: dataset.isYoutube,
-  }));
+  return parseJsonLines(text)
+    .map((entry) => ({
+      ...entry,
+      title: cleanTitle(entry.title),
+      text: stripBoilerplate(entry.text),
+      source: dataset.name,
+      datasetId: dataset.id,
+      isYoutube: dataset.isYoutube,
+    }))
+    .flatMap(splitLongNarrative);
 }
 
 async function loadInterviewManifest(dataset) {
