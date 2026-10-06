@@ -205,6 +205,41 @@ function isJunkRecord(record) {
   return /^find more .*narratives?/i.test(record.title || "");
 }
 
+// A few interviews are written essays with no Q/A structure, so the
+// extractor saved each one as a single chunk - Michelle La Flamme's is
+// ~13,000 characters vs a ~750 median. Scoring rewards every query term
+// that appears anywhere in a chunk, so one giant chunk contains almost
+// any term and topped nearly every longer story. Splitting those essays
+// into paragraph groups of roughly Q/A size puts them on equal footing.
+const LONG_NARRATIVE_CHARS = 2000;
+const NARRATIVE_PART_CHARS = 1200;
+
+function splitLongNarrative(record) {
+  const text = record.text || "";
+  if (record.question || text.length <= LONG_NARRATIVE_CHARS) {
+    return [record];
+  }
+  const paragraphs = stripBoilerplate(text).split(/\n\s*\n/);
+  const parts = [];
+  let buffer = "";
+  for (const paragraph of paragraphs) {
+    if (buffer && buffer.length + paragraph.length > NARRATIVE_PART_CHARS) {
+      parts.push(buffer);
+      buffer = "";
+    }
+    buffer += (buffer ? "\n\n" : "") + paragraph;
+  }
+  if (buffer) parts.push(buffer);
+  // Ids keep the original "#qa-N" so the reader panel's ordering still
+  // works; parts of the same chunk stay in order (stable sort).
+  return parts.map((part, index) => ({
+    ...record,
+    id: `${record.id}~part-${index + 1}`,
+    text: part,
+    answer: part,
+  }));
+}
+
 const MAX_MATCHES = 20;
 const MAX_MATCHES_PER_SLUG = 3;
 
@@ -887,7 +922,9 @@ async function loadCorpus() {
         throw new Error(`Could not load ${dataset.chunksPath}`);
       }
       const text = await response.text();
-      return parseJsonLines(text).map((entry) => ({ ...entry, datasetId: dataset.id }));
+      return parseJsonLines(text)
+        .flatMap(splitLongNarrative)
+        .map((entry) => ({ ...entry, datasetId: dataset.id }));
     })
   );
 
