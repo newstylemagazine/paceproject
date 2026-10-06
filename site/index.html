@@ -14,7 +14,7 @@
     <main class="page">
       <nav class="hero-nav">
         <a href="search.html" class="nav-link">Browse the archive</a>
-        <a href="about-me.html" class="nav-link">Your reflection</a>
+        <a href="about-me.html" id="navReflection" class="nav-link">Your reflection</a>
       </nav>
 
       <header class="hero">
@@ -25,11 +25,20 @@
         </p>
       </header>
 
+      <div id="reflectionBar" class="reflection-bar" hidden>
+        <div class="reflection-bar-track" role="progressbar" aria-label="Your reflection" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0">
+          <div class="reflection-bar-fill"></div>
+        </div>
+        <p class="reflection-bar-label"></p>
+      </div>
+
       <section class="intake-panel" aria-label="Story input">
         <p id="continuePrompt" class="continue-prompt">
-          Write a paragraph, then press Go. Related voices from the archive
-          will surface below - and above, whichever one connects closest.
+          Write a paragraph, then press Enter or Go. The voice that connects
+          closest will answer here, and related voices will surface below.
         </p>
+
+        <div id="chatThread" class="chat-thread" aria-label="Conversation" aria-live="polite" hidden></div>
 
         <div id="intakeStage" class="intake-stage">
           <div class="write-surface">
