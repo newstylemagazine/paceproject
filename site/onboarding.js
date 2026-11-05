@@ -976,8 +976,80 @@ function triggerMatch(text, { reply = false } = {}) {
   if (matches.length) {
     replyWithTopMatch(matches[0]);
   } else {
-    pushTurn({ role: "ai", text: "No close matches yet - keep writing and the archive will respond." });
+    askOpenerQuestion(trimmed);
   }
+}
+
+// ── Opener questions for input with nothing to match ──────────────────────
+// Words that carry no signal about someone's life or work. If what's typed
+// is only these (plus stop words and 1-2 letter fragments), it's "thin".
+const FILLER_WORDS = new Set([
+  "test", "tests", "testing", "tested", "tester", "hi", "hello", "hey", "hiya", "yo", "sup",
+  "ok", "okay", "kk", "yes", "yeah", "yep", "nope", "lol", "lmao", "haha", "hmm", "hmmm",
+  "um", "umm", "uh", "huh", "idk", "dunno", "nothing", "whatever", "something", "anything",
+  "asdf", "asdfg", "asdfgh", "qwerty", "foo", "bar", "baz", "blah", "ping", "check", "start",
+  "begin", "help", "please", "thanks", "thank", "cool", "nice", "good", "fine", "sure", "maybe",
+  "here", "there", "one", "two", "three", "word", "words", "type", "typing", "write", "writing",
+  "sample", "example", "demo", "trying", "try", "see", "works", "work", "working", "does",
+]);
+
+function isThinInput(text) {
+  const tokens = normalize(text).split(/\s+/).filter(Boolean);
+  const meaningful = tokens.filter(
+    (token) => token.length > 2 && !STOP_WORDS.has(token) && !FILLER_WORDS.has(token)
+  );
+  if (!meaningful.length) return true;
+  // Keyboard mashes ("sdfgh", "jjjjj"): no vowels, or one letter repeated.
+  return meaningful.every((token) => !/[aeiouy]/.test(token) || /^(.)\1+$/.test(token));
+}
+
+// Used only if the AI endpoint can't be reached.
+const OPENER_FALLBACK_QUESTIONS = [
+  "What does your research actually ask - the version you'd never put in a grant application?",
+  "When did you last lose track of time working? What were you doing?",
+  "Who do you call when the work goes badly, and what do you tell them?",
+  "What part of your degree would you do again, even unpaid?",
+  "If your program ended tomorrow, what would you miss first?",
+  "What did you think academia would be like before you started? What turned out different?",
+  "What's a skill you've picked up that never shows up on your CV?",
+  "Who outside the university really understands what you do all day?",
+  "What decision about your career are you putting off right now?",
+  "What do you study, and what got you hooked on it in the first place?",
+];
+
+function previousOpenerQuestions() {
+  return (state.thread || []).filter((turn) => turn.opener).map((turn) => turn.text);
+}
+
+async function askOpenerQuestion(typed) {
+  const previous = previousOpenerQuestions();
+  const recent = (state.thread || [])
+    .filter((turn) => !turn.pending)
+    .slice(-6)
+    .map((turn) => ({ role: turn.role, text: turn.text }));
+  const pendingIndex = pushTurn({ role: "ai", pending: true });
+
+  let question = "";
+  try {
+    const response = await fetch("/api/ai-opener", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ typed, thread: recent, previousQuestions: previous }),
+    });
+    if (response.ok) {
+      const result = await response.json();
+      question = String(result.question || "").trim();
+    }
+  } catch (error) {
+    console.error("Could not fetch an opener question:", error);
+  }
+
+  if (!question) {
+    const fresh = OPENER_FALLBACK_QUESTIONS.filter((q) => !previous.includes(q));
+    const pool = fresh.length ? fresh : OPENER_FALLBACK_QUESTIONS;
+    question = pool[Math.floor(Math.random() * pool.length)];
+  }
+  replaceTurn(pendingIndex, { role: "ai", text: question, opener: true });
 }
 
 // Grows the box with what's typed instead of starting big and empty - the
@@ -1186,6 +1258,22 @@ function wireEvents() {
 
     clearTimeout(autoMatchTimer);
     lastMatchedText = "";
+
+    // "testing", "hi", a keyboard mash: nothing to match on, so ask a real
+    // question instead - and keep it out of the reflection's source text
+    // and the progress count, since there's nothing in it to reflect on.
+    if (text && !state.uploads.length && isThinInput(text)) {
+      storyInput.value = "";
+      state.draftText = "";
+      state.text = state.committedText;
+      wordCount.textContent = "0 words";
+      autoGrowStoryInput();
+      safeSetStorage(PROFILE_STORAGE_KEY, state);
+      storyInput.focus();
+      pushTurn({ role: "user", text });
+      askOpenerQuestion(text);
+      return;
+    }
 
     // Commit this turn and clear the box BEFORE triggering the match -
     // don't make anyone wait on the archive/AI round-trip just to get an
