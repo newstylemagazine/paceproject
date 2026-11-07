@@ -1021,7 +1021,7 @@ function previousOpenerQuestions() {
   return (state.thread || []).filter((turn) => turn.opener).map((turn) => turn.text);
 }
 
-async function askOpenerQuestion(typed) {
+async function askOpenerQuestion(typed, attachments = []) {
   const previous = previousOpenerQuestions();
   const recent = (state.thread || [])
     .filter((turn) => !turn.pending)
@@ -1034,7 +1034,12 @@ async function askOpenerQuestion(typed) {
     const response = await fetch("/api/ai-opener", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ typed, thread: recent, previousQuestions: previous }),
+      body: JSON.stringify({
+        typed,
+        thread: recent,
+        previousQuestions: previous,
+        attachments: attachments.map((item) => ({ name: item.name, text: item.textExcerpt || "" })),
+      }),
     });
     if (response.ok) {
       const result = await response.json();
@@ -1044,6 +1049,13 @@ async function askOpenerQuestion(typed) {
     console.error("Could not fetch an opener question:", error);
   }
 
+  if (!question && attachments.length) {
+    const readable = attachments.some((item) => item.textExcerpt);
+    const name = attachments[0].name.replace(/\.[^.]+$/, "");
+    question = readable
+      ? `What made you want to bring ${name} here - what is it circling that your research or your life is circling too?`
+      : `${name} couldn't be read here. What is it, and why did you bring it?`;
+  }
   if (!question) {
     const fresh = OPENER_FALLBACK_QUESTIONS.filter((q) => !previous.includes(q));
     const pool = fresh.length ? fresh : OPENER_FALLBACK_QUESTIONS;
@@ -1259,10 +1271,15 @@ function wireEvents() {
     clearTimeout(autoMatchTimer);
     lastMatchedText = "";
 
+    // Files attached since the last reply. Uploads stay in state.uploads
+    // across turns as ongoing context, but only a NEW file gets a reply
+    // about the file itself.
+    const newUploads = state.uploads.filter((item) => !item.discussed);
+
     // "testing", "hi", a keyboard mash: nothing to match on, so ask a real
     // question instead - and keep it out of the reflection's source text
     // and the progress count, since there's nothing in it to reflect on.
-    if (text && !state.uploads.length && isThinInput(text)) {
+    if (text && !newUploads.length && isThinInput(text)) {
       storyInput.value = "";
       state.draftText = "";
       state.text = state.committedText;
@@ -1298,10 +1315,20 @@ function wireEvents() {
     safeSetStorage(PROFILE_STORAGE_KEY, state);
     storyInput.focus();
 
-    pushTurn({
-      role: "user",
-      text: text || `Attached: ${state.uploads.map((item) => item.name).join(", ")}`,
-    });
+    if (newUploads.length) {
+      // Respond to what was shared, not to whichever interview happens to
+      // share its keywords. The voices below still refresh from it.
+      const names = newUploads.map((item) => `\u{1F4CE} ${item.name}`).join("\n");
+      pushTurn({ role: "user", text: text ? `${text}\n${names}` : names });
+      state.uploads = state.uploads.map((item) => (item.discussed ? item : { ...item, discussed: true }));
+      safeSetStorage(PROFILE_STORAGE_KEY, state);
+      triggerMatch(text);
+      askOpenerQuestion(text, newUploads);
+      bumpReflectionProgress();
+      return;
+    }
+
+    pushTurn({ role: "user", text });
     triggerMatch(text, { reply: true });
     bumpReflectionProgress();
   });
