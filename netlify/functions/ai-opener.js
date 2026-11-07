@@ -61,6 +61,34 @@ export const OPENER_FALLBACK_QUESTIONS = [
   "What do you study, and what got you hooked on it in the first place?",
 ];
 
+// When the turn includes a newly attached file, the reply has to engage
+// with the file itself. Matching a short story against interview keywords
+// and answering with some interviewee's unrelated question (the old
+// behaviour) reads as if nobody looked at what was shared.
+export const ATTACHMENT_SYSTEM_PROMPT = [
+  "You're the voice of a tool built on TRaCE, an oral-history archive of people who did PhDs ",
+  "talking about what happened next. Someone just shared a file with you (attachments: name ",
+  "and extracted text, possibly cut short), maybe with a line of their own (typed).\n\n",
+  "Read it the way a perceptive, well-read friend would, then reply in at most two sentences, ",
+  "under 60 words, speaking to them directly:\n",
+  "1. Respond to the piece itself. Work out what kind of thing it is - a story, poem, essay, ",
+  "CV, notes, a chapter - and respond in kind: craft and image for creative writing, the ",
+  "argument for an essay, a pattern or gap for a CV. Name one concrete detail (an image, a ",
+  "line, a choice, a claim) and say something true and specific about it. Never summarize the ",
+  "whole thing.\n",
+  "2. End with one pithy question that connects the piece to their research or their life - ",
+  "what it's circling, why they wrote it now, what it says about where they are - the kind of ",
+  "answer that would surface a kindred voice in the archive.\n\n",
+  "Banned: praise inflation ('beautiful', 'powerful', 'stunning'), 'Thank you for sharing', ",
+  "explaining the tool, therapist-speak, exclamation points. If recent_thread shows things ",
+  "they've already said, you can draw on those.\n\n",
+  "If the attachment text is empty, say plainly that the file couldn't be read, and ask what ",
+  "it is and why they brought it here.\n\n",
+  'Return only valid JSON: {"question": "..."}',
+].join("");
+
+const MAX_ATTACHMENT_CHARS = 6000;
+
 function fallbackOpener(previousQuestions) {
   const used = new Set(previousQuestions);
   const fresh = OPENER_FALLBACK_QUESTIONS.filter((question) => !used.has(question));
@@ -80,19 +108,41 @@ async function getOpener(env, payload) {
     ? payload.previousQuestions.slice(-8).map((q) => String(q || "").slice(0, 200))
     : [];
 
-  const result = await callTextProvider(env, [
-    { role: "system", content: OPENER_SYSTEM_PROMPT },
-    {
-      role: "user",
-      content: JSON.stringify({ typed, recent_thread: thread, previous_questions: previousQuestions }),
-    },
-  ]);
+  const attachments = Array.isArray(payload.attachments)
+    ? payload.attachments.slice(0, 4).map((item) => ({
+        name: String((item && item.name) || "").slice(0, 120),
+        text: String((item && item.text) || "").slice(0, MAX_ATTACHMENT_CHARS),
+      }))
+    : [];
+
+  const result = attachments.length
+    ? await callTextProvider(env, [
+        { role: "system", content: ATTACHMENT_SYSTEM_PROMPT },
+        { role: "user", content: JSON.stringify({ typed, attachments, recent_thread: thread }) },
+      ])
+    : await callTextProvider(env, [
+        { role: "system", content: OPENER_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: JSON.stringify({ typed, recent_thread: thread, previous_questions: previousQuestions }),
+        },
+      ]);
 
   const question = result && result.parsed && typeof result.parsed.question === "string"
     ? result.parsed.question.trim()
     : "";
   if (question) {
     return { question, source: result.providerName };
+  }
+  if (attachments.length) {
+    const name = attachments[0].name.replace(/\.[^.]+$/, "") || "that file";
+    const readable = attachments.some((item) => item.text.trim());
+    return {
+      question: readable
+        ? `What made you want to bring ${name} here - what is it circling that your research or your life is circling too?`
+        : `${name} couldn't be read here. What is it, and why did you bring it?`,
+      source: "fallback",
+    };
   }
   return { question: fallbackOpener(previousQuestions), source: "fallback" };
 }
