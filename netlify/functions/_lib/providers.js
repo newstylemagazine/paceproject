@@ -63,7 +63,7 @@ function cleanJsonContent(content) {
   return JSON.parse(cleaned);
 }
 
-export async function describeImage(env, dataUrl, filename) {
+export async function describeImage(env, dataUrl, filename, prompt = IMAGE_DESCRIPTION_PROMPT) {
   for (const [providerName, baseUrl, configFn, model] of VISION_PROVIDERS) {
     const config = configFn(env);
     if (!config) continue;
@@ -78,7 +78,7 @@ export async function describeImage(env, dataUrl, filename) {
           {
             role: "user",
             content: [
-              { type: "text", text: IMAGE_DESCRIPTION_PROMPT },
+              { type: "text", text: prompt },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
           },
