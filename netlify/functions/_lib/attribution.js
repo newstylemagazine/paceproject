@@ -67,11 +67,52 @@ export function findMisattributions(reply, studentText, otherText) {
   return [...flagged];
 }
 
-export function correctionMessage(borrowed) {
-  return (
-    `Your draft attributed something to the person that only appears in the interview text: ` +
-    `${borrowed.map((w) => `"${w}"`).join(", ")}. Those are the interviewee's details, not theirs. ` +
-    `Rewrite the reply so that "you" and "your" refer only to things the person actually wrote, ` +
-    `and talk about the interviewee by name or as "she"/"he"/"they". Same JSON format.`
-  );
+// Quoted words in a reply must actually appear in the source. The model
+// otherwise invents plausible quotes ("her advisors described her work as
+// 'almost there'") that no one said.
+function squash(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u201c\u201d"'`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export function findFabricatedQuotes(reply, sourceText) {
+  const source = squash(sourceText);
+  const quotes = [];
+  const patterns = [
+    /\u201c([^\u201d]{3,200})\u201d/g, // "curly double"
+    /\u2018([^\u2019]{3,200})\u2019(?![a-z])/gi, // 'curly single' (not an apostrophe)
+    /"([^"]{3,200})"/g, // "straight double"
+    /(?:^|[\s(])'([^']{3,200})'(?=[\s.,;:!?)]|$)/g, // 'straight single'
+  ];
+  for (const pattern of patterns) {
+    for (const match of String(reply || "").matchAll(pattern)) {
+      const quote = squash(match[1]);
+      if (quote.split(" ").length < 2) continue; // a single word is a term, not a quote
+      if (!source.includes(quote)) quotes.push(match[1]);
+    }
+  }
+  return quotes;
+}
+
+export function correctionMessage(borrowed, fabricated = []) {
+  const parts = [];
+  if (borrowed.length) {
+    parts.push(
+      `Your draft attributed something to the person that only appears in the interview text: ` +
+        `${borrowed.map((w) => `"${w}"`).join(", ")}. Those are the interviewee's details, not theirs. ` +
+        `"You" and "your" must refer only to things the person actually wrote; talk about the ` +
+        `interviewee by name or as "she"/"he"/"they".`
+    );
+  }
+  if (fabricated.length) {
+    parts.push(
+      `Your draft quoted words that do not appear in the source: ` +
+        `${fabricated.map((q) => `"${q}"`).join(", ")}. Only put words in quotation marks if they ` +
+        `appear exactly in the text you were given; otherwise paraphrase without quotation marks.`
+    );
+  }
+  return `${parts.join(" ")} Rewrite the reply. Same JSON format.`;
 }

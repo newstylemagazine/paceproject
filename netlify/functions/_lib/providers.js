@@ -44,7 +44,15 @@ async function chatCompletion({ baseUrl, apiKey, model, messages, jsonMode = tru
     });
 
     if (!response.ok) {
-      throw new Error(`Provider responded ${response.status}: ${await response.text()}`);
+      const text = await response.text();
+      const error = new Error(`Provider responded ${response.status}: ${text}`);
+      error.status = response.status;
+      // Groq says how long to wait, in a header or in the message
+      // ("Please try again in 1.2s").
+      const header = Number(response.headers.get("retry-after"));
+      const inText = /try again in ([\d.]+)s/i.exec(text);
+      error.retryAfter = Number.isFinite(header) && header > 0 ? header : inText ? Number(inText[1]) : null;
+      throw error;
     }
 
     const payload = await response.json();
@@ -94,19 +102,43 @@ export async function describeImage(env, dataUrl, filename, prompt = IMAGE_DESCR
   return null;
 }
 
-// Tries each configured text provider in order, returns { providerName, parsed } or null.
+// The free Groq tier limits each model to a few thousand tokens a minute,
+// so two or three replies in quick succession get a 429. When that
+// happens: wait briefly if Groq says the wait is short, otherwise try the
+// next model (each model has its own limit), then the next provider.
+const GROQ_FALLBACK_MODELS = ["openai/gpt-oss-20b", "llama-3.1-8b-instant"];
+const MAX_RATE_LIMIT_WAIT_S = 3;
+
+function modelsFor(providerName, config, env) {
+  if (providerName !== "groq") return [config.model];
+  const extra = (env.GROQ_FALLBACK_MODELS || "").split(",").map((m) => m.trim()).filter(Boolean);
+  return [...new Set([config.model, ...(extra.length ? extra : GROQ_FALLBACK_MODELS)])];
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Tries each configured text provider (and model) in order, returns { providerName, parsed } or null.
 export async function callTextProvider(env, messages) {
   for (const [providerName, baseUrl, configFn] of TEXT_PROVIDERS) {
     const config = configFn(env);
     if (!config) continue;
 
-    try {
-      const content = await chatCompletion({ baseUrl, apiKey: config.apiKey, model: config.model, messages });
-      if (!content) continue;
-      const parsed = cleanJsonContent(content);
-      return { providerName, parsed };
-    } catch (error) {
-      console.error(`[ai-synthesize] ${providerName} provider failed:`, error);
+    for (const model of modelsFor(providerName, config, env)) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const content = await chatCompletion({ baseUrl, apiKey: config.apiKey, model, messages });
+          if (!content) break;
+          return { providerName, model, parsed: cleanJsonContent(content) };
+        } catch (error) {
+          const shortWait = error.status === 429 && error.retryAfter && error.retryAfter <= MAX_RATE_LIMIT_WAIT_S;
+          console.error(`[ai] ${providerName}/${model} failed (attempt ${attempt + 1}):`, error.message);
+          if (attempt === 0 && shortWait) {
+            await sleep(error.retryAfter * 1000 + 150);
+            continue;
+          }
+          break;
+        }
+      }
     }
   }
   return null;
