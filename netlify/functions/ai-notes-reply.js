@@ -1,6 +1,7 @@
 import { callTextProvider } from "./_lib/providers.js";
 import { NOTES_REPLY_SYSTEM_PROMPT } from "./_lib/prompts.js";
 import { fallbackNotesReply } from "./_lib/fallback.js";
+import { findMisattributions, correctionMessage } from "./_lib/attribution.js";
 
 function jsonResponse(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -36,22 +37,58 @@ async function getNotesReply(env, payload) {
   const interviewTitle = String(payload.interviewTitle || "");
   const interviewContext = String(payload.interviewContext || "").slice(0, MAX_CONTEXT_CHARS);
 
-  const userPayload = {
-    note: noteText,
-    recent_thread: thread,
-    interview_title: interviewTitle,
-    interview_context: interviewContext,
-  };
-
-  const result = await callTextProvider(env, [
+  // Each speaker gets its own message, so the model sees the interview as a
+  // document about someone else and the reader's notes as the reader's.
+  // (It used to receive one JSON blob with both inside, and would sometimes
+  // ask a reader about "your cheese business" because the interviewee had one.)
+  const name = interviewTitle.split(",")[0] || "the interviewee";
+  const messages = [
     { role: "system", content: NOTES_REPLY_SYSTEM_PROMPT },
-    { role: "user", content: JSON.stringify(userPayload) },
-  ]);
-
-  if (result && result.parsed && typeof result.parsed === "object" && result.parsed.reply) {
-    return { reply: String(result.parsed.reply), source: result.providerName };
+    {
+      role: "user",
+      content:
+        `THE INTERVIEW BEING READ - about ${interviewTitle || "the interviewee"}. ` +
+        `This is a different person. The reader did not write any of this:\n<<<\n${interviewContext}\n>>>`,
+    },
+    {
+      role: "assistant",
+      content: JSON.stringify({ reply: `Understood: that is ${name}'s story, not the reader's.` }),
+    },
+  ];
+  for (const turn of thread) {
+    if (!turn.text) continue;
+    messages.push(
+      turn.role === "ai"
+        ? { role: "assistant", content: JSON.stringify({ reply: turn.text }) }
+        : { role: "user", content: `THE READER'S NOTE: ${turn.text}` }
+    );
   }
+  messages.push({ role: "user", content: `THE READER'S NOTE (reply to this one): ${noteText}` });
 
+  const readerText = [...thread.filter((t) => t.role !== "ai").map((t) => t.text), noteText].join(" ");
+  const parse = (result) =>
+    result && result.parsed && typeof result.parsed.reply === "string" ? result.parsed.reply.trim() : "";
+
+  let result = await callTextProvider(env, messages);
+  let reply = parse(result);
+  if (reply) {
+    const borrowed = findMisattributions(reply, readerText, `${interviewTitle} ${interviewContext}`);
+    if (borrowed.length) {
+      console.warn("[ai-notes-reply] misattribution caught:", borrowed);
+      result = await callTextProvider(env, [
+        ...messages,
+        { role: "assistant", content: JSON.stringify({ reply }) },
+        { role: "user", content: correctionMessage(borrowed) },
+      ]);
+      reply = parse(result);
+      if (reply && findMisattributions(reply, readerText, `${interviewTitle} ${interviewContext}`).length) {
+        reply = "";
+      }
+    }
+  }
+  if (reply) {
+    return { reply, source: result.providerName };
+  }
   return { reply: fallbackNotesReply(noteText, interviewTitle), source: "fallback" };
 }
 
