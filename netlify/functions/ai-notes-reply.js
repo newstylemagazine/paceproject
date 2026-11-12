@@ -1,7 +1,7 @@
 import { callTextProvider } from "./_lib/providers.js";
 import { NOTES_REPLY_SYSTEM_PROMPT } from "./_lib/prompts.js";
 import { fallbackNotesReply } from "./_lib/fallback.js";
-import { findMisattributions, correctionMessage } from "./_lib/attribution.js";
+import { findMisattributions, findFabricatedQuotes, correctionMessage } from "./_lib/attribution.js";
 
 function jsonResponse(obj, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -69,20 +69,26 @@ async function getNotesReply(env, payload) {
   const parse = (result) =>
     result && result.parsed && typeof result.parsed.reply === "string" ? result.parsed.reply.trim() : "";
 
+  const sourceText = `${interviewTitle} ${interviewContext}`;
+  const problems = (text) => ({
+    borrowed: findMisattributions(text, readerText, sourceText),
+    fabricated: findFabricatedQuotes(text, `${sourceText} ${readerText}`),
+  });
   let result = await callTextProvider(env, messages);
   let reply = parse(result);
   if (reply) {
-    const borrowed = findMisattributions(reply, readerText, `${interviewTitle} ${interviewContext}`);
-    if (borrowed.length) {
-      console.warn("[ai-notes-reply] misattribution caught:", borrowed);
+    const found = problems(reply);
+    if (found.borrowed.length || found.fabricated.length) {
+      console.warn("[ai-notes-reply] problems caught:", found);
       result = await callTextProvider(env, [
         ...messages,
         { role: "assistant", content: JSON.stringify({ reply }) },
-        { role: "user", content: correctionMessage(borrowed) },
+        { role: "user", content: correctionMessage(found.borrowed, found.fabricated) },
       ]);
       reply = parse(result);
-      if (reply && findMisattributions(reply, readerText, `${interviewTitle} ${interviewContext}`).length) {
-        reply = "";
+      if (reply) {
+        const again = problems(reply);
+        if (again.borrowed.length || again.fabricated.length) reply = "";
       }
     }
   }

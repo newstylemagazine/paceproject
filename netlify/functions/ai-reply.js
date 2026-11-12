@@ -1,5 +1,5 @@
 import { callTextProvider } from "./_lib/providers.js";
-import { findMisattributions, correctionMessage } from "./_lib/attribution.js";
+import { findMisattributions, findFabricatedQuotes, correctionMessage } from "./_lib/attribution.js";
 
 // Every reply on the home page comes from here: to a message, to an
 // attached file, or both. It replaced a fixed template ("X was asked: '...'
@@ -44,6 +44,7 @@ WRITE A REPLY of 2 to 4 sentences, under 90 words, speaking to the student direc
 2. Respond to what they actually said, in their terms. If they are dry or sardonic, you can be dry back; never wounded, never cheerful.
 3. Bring in ONE voice by name. Say in a short clause why this person (what they share with the student: field, situation, a decision they faced). Give one concrete detail that is actually in that voice's text, quoted briefly if it helps.
 4. End with a question only if it opens something real. At most one question. Many replies should end without one.
+5. Only put words in quotation marks if they appear word for word in the text you were given. Never invent what an interviewee said.
 
 NEVER: repeat a detail or quote you already used in YOUR EARLIER REPLIES (the same person is fine, the same detail is not); refer to the student in the third person ("the writer", "the user"); praise ("clever", "powerful", "great point"); use words like scaffolding, journey, navigate, resonate, unpack, holding space, leverage; use exclamation points; misspell names or references.
 
@@ -140,19 +141,26 @@ export async function getReply(env, payload) {
   let { reply, voice } = parseReply(result, voiceCount);
   if (!reply) return { reply: "", voice: null, source: "none" };
 
-  // Second line of defence: if the reply still puts a voice's details in
-  // the student's mouth, ask for one rewrite; if that fails too, return
-  // nothing and let the page fall back to a plain, safe line.
-  const borrowed = findMisattributions(reply, studentText, voicesText);
-  if (borrowed.length) {
-    console.warn("[ai-reply] misattribution caught:", borrowed);
+  // Second line of defence: if the reply puts a voice's details in the
+  // student's mouth, or quotes words nobody said, ask for one rewrite; if
+  // that fails too, return nothing and let the page fall back to a plain,
+  // safe line.
+  const sourceText = `${voicesText} ${studentText}`;
+  const problems = (text) => ({
+    borrowed: findMisattributions(text, studentText, voicesText),
+    fabricated: findFabricatedQuotes(text, sourceText),
+  });
+  let found = problems(reply);
+  if (found.borrowed.length || found.fabricated.length) {
+    console.warn("[ai-reply] problems caught:", found);
     result = await callTextProvider(env, [
       ...messages,
       { role: "assistant", content: JSON.stringify({ reply, voice }) },
-      { role: "user", content: correctionMessage(borrowed) },
+      { role: "user", content: correctionMessage(found.borrowed, found.fabricated) },
     ]);
     ({ reply, voice } = parseReply(result, voiceCount));
-    if (!reply || findMisattributions(reply, studentText, voicesText).length) {
+    found = reply ? problems(reply) : null;
+    if (!reply || found.borrowed.length || found.fabricated.length) {
       return { reply: "", voice: null, source: "rejected" };
     }
   }
