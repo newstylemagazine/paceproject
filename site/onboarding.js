@@ -1,14 +1,9 @@
 const PROFILE_STORAGE_KEY = "trace_profile_intake_v3";
 
-// Shown the instant the box clears after Go, before the real (specific,
-// AI-grounded) provocative question comes back - generic but still an
-// actual invitation, not just an empty box.
-const NEXT_TURN_PLACEHOLDERS = [
-  "What's still on your mind?",
-  "What's the next thing that's true right now?",
-  "Say the part you didn't say yet.",
-  "What would you add to that, if you're honest?",
-];
+// After the first message the archive's reply sits right above the box,
+// so the box itself just needs to say where to type - no more rotating
+// prompts competing with the conversation.
+const REPLY_PLACEHOLDER = "Reply...";
 
 const DATASETS = [
   { id: "tracemcgill", chunksPath: "../data/tracemcgill/chunks.jsonl" },
@@ -374,6 +369,28 @@ function renderUploads() {
   }
 }
 
+// Phone photos are often 3-10MB - too big to send to the vision model or
+// keep in localStorage. 1600px on the long side still keeps book-spine
+// text legible. Falls back to the original only if it's already small.
+const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
+const PHOTO_MAX_EDGE = 1600;
+
+async function downscaleImage(file) {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch (error) {
+    console.error(`Could not resize ${file.name}:`, error);
+    return file.size <= MAX_IMAGE_BYTES ? readFileAsDataURL(file) : "";
+  }
+}
+
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -457,8 +474,9 @@ async function toUploadRecord(file) {
   };
 
   try {
-    if (file.type.startsWith("image/") && file.size <= MAX_IMAGE_BYTES) {
-      record.previewDataUrl = await readFileAsDataURL(file);
+    if (file.type.startsWith("image/") && file.size <= MAX_PHOTO_BYTES) {
+      record.previewDataUrl = await downscaleImage(file);
+      if (!record.previewDataUrl) record.extractionFailed = true;
     } else if (
       (file.type.startsWith("text/") || TEXT_LIKE_EXTENSIONS.test(file.name)) &&
       file.size <= MAX_IMAGE_BYTES
@@ -509,7 +527,15 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;");
 }
 
-function renderQuoteFeed(matches) {
+function renderQuoteFeed(allMatches) {
+  // One card per interview: the list used to show the same person two or
+  // three times (and the odd exact duplicate).
+  const seenSlugs = new Set();
+  const matches = allMatches.filter((match) => {
+    if (seenSlugs.has(match.slug)) return false;
+    seenSlugs.add(match.slug);
+    return true;
+  });
   quoteFeed.innerHTML = "";
   activeMatches = matches;
   feedNotes = new Map();
@@ -520,6 +546,10 @@ function renderQuoteFeed(matches) {
   }
 
   quoteFeed.hidden = false;
+  const heading = document.createElement("p");
+  heading.className = "feed-heading";
+  heading.textContent = "More voices from the archive";
+  quoteFeed.appendChild(heading);
 
   matches.forEach((match, index) => {
     const item = document.createElement("article");
@@ -568,22 +598,11 @@ function buildProfileText() {
   for (const item of state.uploads) {
     if (item.textExcerpt) {
       parts.push(`[From ${item.name}]\n${item.textExcerpt}`);
+    } else if (item.imageDescription) {
+      parts.push(`[Photo ${item.name}]\n${item.imageDescription}`);
     }
   }
   return parts.filter(Boolean).join("\n\n").slice(0, MAX_PROFILE_TEXT_CHARS);
-}
-
-async function fetchResonanceNote(match) {
-  const response = await fetch("/api/ai-question", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: buildProfileText(), match }),
-  });
-  if (!response.ok) {
-    throw new Error(`Server responded ${response.status}`);
-  }
-  const result = await response.json();
-  return { note: result.note || "", question: result.question || "" };
 }
 
 // ── Chat thread ───────────────────────────────────────────────────────────
@@ -647,6 +666,7 @@ function renderThread() {
   if (!chatThread) return;
   const thread = state.thread || [];
   chatThread.hidden = thread.length === 0;
+  document.body.classList.toggle("has-thread", thread.length > 0);
   if (continuePrompt) continuePrompt.hidden = thread.length > 0;
 
   chatThread.innerHTML = thread
@@ -684,38 +704,77 @@ function replaceTurn(index, turn) {
   renderThread();
 }
 
-// A real interview question is used whenever the top match has one - it's
-// literally the interviewee's own question, an invitation to answer it
-// too. Only narrative-only excerpts (no discrete question) fall back to an
-// AI-written connecting note.
-async function replyWithTopMatch(match) {
-  if (match.question) {
-    pushTurn({
-      role: "ai",
-      text: `${match.title} was asked: “${match.question}” What's your own answer to that?`,
-      match: compactMatch(match),
+// ── Replies that bring in a voice ─────────────────────────────────────────
+// Every reply goes through /api/ai-reply with the conversation, so it
+// answers what was actually said. (A fixed template used to answer "I'm
+// not sure I want to finish" with "X was asked about their current job -
+// what's yours?", and could repeat itself word for word.)
+
+// Whether an entry is the person talking, or a profile someone wrote about
+// them - the AI says "her profile says" for the latter.
+function voiceForm(match) {
+  if (match.question) return "interview";
+  const firstPerson = (match.fullText.match(/\b(I|my|me|I'm|I've|I'd)\b/g) || []).length;
+  return firstPerson >= 3 ? "interview" : "profile";
+}
+
+// The same person can come back; the same passage shouldn't.
+function usedChunkIds() {
+  return new Set((state.thread || []).filter((t) => t.match && t.match.chunkId).map((t) => t.match.chunkId));
+}
+
+function pickVoices(matches) {
+  const used = usedChunkIds();
+  const seen = new Set();
+  const voices = [];
+  for (const match of matches) {
+    if (used.has(match.chunkId) || seen.has(match.slug)) continue;
+    seen.add(match.slug);
+    voices.push(match);
+    if (voices.length >= MAX_VOICES) break;
+  }
+  return voices;
+}
+
+async function respondWithVoices(typed, matches, attachments = [], pendingIndex = null) {
+  if (pendingIndex === null) pendingIndex = pushTurn({ role: "ai", pending: true });
+  const voices = pickVoices(matches);
+  const thread = (state.thread || []).filter((turn) => !turn.pending);
+
+  let reply = "";
+  let voiceIndex = null;
+  try {
+    const response = await fetch("/api/ai-reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: thread.filter((t) => t.role === "user").map((t) => t.text).slice(-6),
+        earlierReplies: thread.filter((t) => t.role === "ai").map((t) => t.text).slice(-4),
+        attachments,
+        voices: voices.map((match) => ({
+          name: match.title,
+          form: voiceForm(match),
+          question: match.question,
+          excerpt: match.fullText.slice(0, 900),
+        })),
+      }),
     });
-    return;
+    if (response.ok) {
+      const result = await response.json();
+      reply = String(result.reply || "").trim();
+      if (Number.isInteger(result.voice) && voices[result.voice]) voiceIndex = result.voice;
+    }
+  } catch (error) {
+    console.error("Could not fetch a reply:", error);
   }
 
-  const pendingIndex = pushTurn({ role: "ai", pending: true });
-  try {
-    const { note, question } = await fetchResonanceNote(match);
-    feedNotes.set(0, note);
-    const text = [note, question].filter(Boolean).join(" ");
-    replaceTurn(pendingIndex, {
-      role: "ai",
-      text: text || "Keep going - related voices are surfacing below.",
-      match: compactMatch(match),
-    });
-  } catch (error) {
-    console.error("Could not fetch a resonance note:", error);
-    replaceTurn(pendingIndex, {
-      role: "ai",
-      text: `This brought up ${match.title}. Keep going - related voices are surfacing below.`,
-      match: compactMatch(match),
-    });
+  const voice = voiceIndex !== null ? voices[voiceIndex] : reply ? null : voices[0];
+  if (!reply) {
+    reply = voice
+      ? `${voice.title.split(",")[0]} might be worth reading here${voice.question ? `; they were asked \u201c${voice.question}\u201d` : ""}.`
+      : "Keep going - related voices are below.";
   }
+  replaceTurn(pendingIndex, { role: "ai", text: reply, match: voice ? compactMatch(voice) : undefined });
 }
 
 let readerObserver = null;
@@ -974,7 +1033,7 @@ function triggerMatch(text, { reply = false } = {}) {
     return;
   }
   if (matches.length) {
-    replyWithTopMatch(matches[0]);
+    respondWithVoices(trimmed, matches);
   } else {
     askOpenerQuestion(trimmed);
   }
@@ -1001,6 +1060,57 @@ function isThinInput(text) {
   if (!meaningful.length) return true;
   // Keyboard mashes ("sdfgh", "jjjjj"): no vowels, or one letter repeated.
   return meaningful.every((token) => !/[aeiouy]/.test(token) || /^(.)\1+$/.test(token));
+}
+
+// ── Replies to attached files and photos ──────────────────────────────────
+// Every reply to a file points at a specific interview: the voices below
+// are matched from the file's text (or, for a photo, from the vision
+// model's reading of it), and the AI picks the one with the most real
+// connection. If nothing in the file matches at all (a photo of a bare
+// desk), these terms pull in voices about how people work.
+const WORK_HABITS_QUERY = "desk office books papers notes organize organized routine habits writing workspace";
+const MAX_VOICES = 6;
+
+async function readPhoto(item) {
+  if (item.imageDescription) return item.imageDescription;
+  try {
+    const response = await fetch("/api/ai-opener", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ describe: item.previewDataUrl, name: item.name }),
+    });
+    if (!response.ok) return "";
+    const description = String((await response.json()).description || "").trim();
+    if (description) {
+      state.uploads = state.uploads.map((upload) =>
+        upload.id === item.id ? { ...upload, imageDescription: description } : upload
+      );
+      safeSetStorage(PROFILE_STORAGE_KEY, state);
+    }
+    return description;
+  } catch (error) {
+    console.error(`Could not read photo ${item.name}:`, error);
+    return "";
+  }
+}
+
+async function respondToAttachments(typed, uploads) {
+  const pendingIndex = pushTurn({ role: "ai", pending: true });
+
+  const attachments = [];
+  for (const item of uploads) {
+    if (item.previewDataUrl) {
+      attachments.push({ name: item.name, kind: "photo", text: await readPhoto(item) });
+    } else {
+      attachments.push({ name: item.name, kind: "document", text: item.textExcerpt || "" });
+    }
+  }
+
+  let matches = buildMatches([typed, ...attachments.map((a) => a.text)].join(" "), []);
+  if (!matches.length) matches = buildMatches(WORK_HABITS_QUERY, []);
+  renderQuoteFeed(matches);
+
+  await respondWithVoices(typed, matches, attachments, pendingIndex);
 }
 
 // Used only if the AI endpoint can't be reached.
@@ -1100,10 +1210,16 @@ async function loadCorpus() {
     })
   );
 
+  // Some entries are published in more than one dataset; keep one copy.
   const merged = [];
+  const seenText = new Set();
   for (const result of loaded) {
-    if (result.status === "fulfilled") {
-      merged.push(...result.value);
+    if (result.status !== "fulfilled") continue;
+    for (const entry of result.value) {
+      const key = `${entry.slug}|${normalize(entry.text || "").slice(0, 240)}`;
+      if (seenText.has(key)) continue;
+      seenText.add(key);
+      merged.push(entry);
     }
   }
   corpus = merged;
@@ -1286,6 +1402,7 @@ function wireEvents() {
       wordCount.textContent = "0 words";
       autoGrowStoryInput();
       safeSetStorage(PROFILE_STORAGE_KEY, state);
+      storyInput.placeholder = REPLY_PLACEHOLDER;
       storyInput.focus();
       pushTurn({ role: "user", text });
       askOpenerQuestion(text);
@@ -1309,7 +1426,7 @@ function wireEvents() {
     state.draftText = "";
     state.text = state.committedText;
     storyInput.value = "";
-    storyInput.placeholder = NEXT_TURN_PLACEHOLDERS[Math.floor(Math.random() * NEXT_TURN_PLACEHOLDERS.length)];
+    storyInput.placeholder = REPLY_PLACEHOLDER;
     wordCount.textContent = "0 words";
     autoGrowStoryInput();
     safeSetStorage(PROFILE_STORAGE_KEY, state);
@@ -1322,8 +1439,7 @@ function wireEvents() {
       pushTurn({ role: "user", text: text ? `${text}\n${names}` : names });
       state.uploads = state.uploads.map((item) => (item.discussed ? item : { ...item, discussed: true }));
       safeSetStorage(PROFILE_STORAGE_KEY, state);
-      triggerMatch(text);
-      askOpenerQuestion(text, newUploads);
+      respondToAttachments(text, newUploads);
       bumpReflectionProgress();
       return;
     }
@@ -1378,6 +1494,7 @@ async function initialize() {
   }
   renderThread();
   renderReflectionBar();
+  if ((state.thread || []).length) storyInput.placeholder = REPLY_PLACEHOLDER;
 
   storyInput.value = state.draftText;
   wordCount.textContent = `${countWords(state.draftText)} words`;
