@@ -68,8 +68,11 @@ body {
   background: #fafafa;
 }
 
-/* The type logo: just the word, set in the site's serif. */
+/* The logo: three hands (trace-mark.svg) and the word, set in the site's serif. */
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font-family: "Libre Baskerville", Baskerville, "Hoefler Text", Georgia, "Times New Roman", serif;
   font-size: 1.75rem;
   font-weight: 700;
@@ -77,6 +80,13 @@ body {
   line-height: 1;
   color: var(--text);
   text-decoration: none;
+}
+
+.wordmark-mark {
+  display: block;
+  width: 3.4rem;
+  height: auto;
+  flex: none;
 }
 
 .wordmark:hover {
