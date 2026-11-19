@@ -66,3 +66,13 @@
 .login { max-width: 380px; margin: 1rem auto; text-align: center; }
 .login input { width: 100%; border: 1px solid #d9d4cc; border-radius: 10px; padding: 0.75rem 0.85rem; font: 1rem -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0.6rem 0 0.9rem; }
 .empty { text-align: center; color: var(--muted); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; padding: 2rem 0; }
+
+/* dictation */
+.answer-bar { display: flex; justify-content: flex-start; margin-top: 0.5rem; }
+.dictate { display: inline-flex; align-items: center; gap: 0.45rem; border: 1px solid #d9d4cc; background: #fff; border-radius: 999px; padding: 0.4rem 0.9rem; font: 600 0.85rem -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #3a3a3e; cursor: pointer; }
+.dictate .mic { width: 0.6rem; height: 0.85rem; border: 2px solid currentColor; border-radius: 0.4rem; position: relative; }
+.dictate .mic::after { content: ""; position: absolute; left: 50%; bottom: -0.38rem; width: 2px; height: 0.3rem; background: currentColor; transform: translateX(-50%); }
+.dictate.listening { border-color: var(--brand); color: var(--brand); background: #fbf1f2; }
+.dictate.listening .mic { animation: dictate-pulse 1.2s ease-in-out infinite; }
+@keyframes dictate-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .dictate.listening .mic { animation: none; } }
