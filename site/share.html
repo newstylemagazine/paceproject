@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="trace-icon.svg" />
+    <title>Share your story · Trace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="share.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="hero-nav">
+        <a href="index.html" class="wordmark" aria-label="Trace home"><img src="trace-mark.svg" alt="" class="wordmark-mark" width="48" height="35" />Trace</a>
+        <div class="nav-links">
+          <a href="index.html" class="nav-link">Write</a>
+          <a href="about-me.html" class="nav-link">Your reflection</a>
+        </div>
+      </nav>
+      <header class="hero">
+        <p class="eyebrow">Add to the archive</p>
+        <h1>Share your story</h1>
+        <p class="subtitle">Did you do graduate work, whether you finished or not? Tell a current student what it was really like. Answer as many questions as you like; a few sentences or a page are both fine.</p>
+      </header>
+
+      <div class="share-wrap">
+        <div id="formView">
+          <div class="notice review" role="note"><span aria-hidden="true">◷</span><div><b>Every story is read before it joins the archive.</b> A reviewer checks it, usually within two weeks, and may email you with a question. Nothing is public until it's approved.</div></div>
+
+          <form id="shareForm" novalidate>
+            <div class="field-grid">
+              <div class="field"><label for="name">Your name</label><input id="name" name="name" autocomplete="name" maxlength="120" placeholder="First and last name" /><p class="hint">Or stay anonymous; you choose below.</p></div>
+              <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" maxlength="200" placeholder="So a reviewer can reach you" /><p class="hint">Optional. Never shown publicly.</p></div>
+              <div class="field"><label for="university">University</label><input id="university" name="university" maxlength="160" placeholder="e.g. McGill University" /></div>
+              <div class="field"><label for="program">Program</label><input id="program" name="program" maxlength="160" placeholder="e.g. PhD, Chemistry" /></div>
+              <div class="field"><label for="years">Years</label><input id="years" name="years" maxlength="40" placeholder="e.g. 2012–2018" /></div>
+              <div class="field"><label for="work">What you do now</label><input id="work" name="work" maxlength="200" placeholder="Optional" /></div>
+            </div>
+
+            <fieldset class="group" style="border:0;padding:0;margin-left:0">
+              <legend class="group-label">Where did it end up?</legend>
+              <div class="chips">
+                <label><input type="radio" name="outcome" value="finished" checked /><span>I finished the degree</span></label>
+                <label><input type="radio" name="outcome" value="left" /><span>I left before finishing</span></label>
+                <label><input type="radio" name="outcome" value="switched" /><span>I switched programs</span></label>
+                <label><input type="radio" name="outcome" value="current" /><span>I'm still in it</span></label>
+              </div>
+              <p class="hint">Stories from people who left are some of the most asked-for, and the hardest to find.</p>
+            </fieldset>
+
+            <div class="group">
+              <span class="group-label">Your answers</span>
+              <div id="answers"></div>
+              <div class="add-q"><select id="addQuestion" aria-label="Add another question"></select><button type="button" class="btn small" id="addQuestionBtn">Add question</button></div>
+            </div>
+
+            <fieldset class="group" style="border:0;padding:0;margin-left:0">
+              <legend class="group-label">How should your story appear?</legend>
+              <div class="chips">
+                <label><input type="radio" name="display" value="name" /><span>With my name</span></label>
+                <label><input type="radio" name="display" value="first" checked /><span>First name and field only</span></label>
+                <label><input type="radio" name="display" value="anonymous" /><span>Anonymously</span></label>
+              </div>
+            </fieldset>
+
+            <div class="group">
+              <label class="check"><input type="checkbox" id="consent" /><span>I agree that, once approved, my story can be shown on Trace, quoted in replies to students, and used to help them think about their studies and careers, as described in <a href="#privacy">How your story is used</a>.</span></label>
+              <label class="check"><input type="checkbox" id="followup" /><span>I'm happy to be contacted if Trace later lets students send a follow-up question (optional).</span></label>
+              <label class="check"><input type="checkbox" id="ownwords" /><span>This is my own experience, and I haven't named other people without their permission.</span></label>
+            </div>
+
+            <div class="hp" aria-hidden="true"><label>Website<input id="website" tabindex="-1" autocomplete="off" /></label></div>
+
+            <div id="formError" class="notice err" role="alert" hidden></div>
+            <div class="actions"><button type="submit" class="btn primary" id="submitBtn">Send for review</button></div>
+          </form>
+        </div>
+
+        <div id="doneView" class="done" hidden>
+          <h2>Thank you. Your story is with a reviewer.</h2>
+          <p class="subtitle">It will appear on Trace once it's been read and approved. If you left an email, a reviewer may write to you first.</p>
+          <p class="share-cta"><a href="index.html">Back to Trace</a></p>
+        </div>
+
+        <details class="privacy" id="privacy">
+          <summary>How your story is used</summary>
+          <div class="privacy-body">
+            <p><i>Pilot version, under review. This notice will be finalized before Trace accepts stories publicly.</i></p>
+            <h3>What we collect</h3>
+            <p>What you type into this form: your answers, the details about your studies, and, if you give them, your name and email. We don't collect anything else about you, and we don't use advertising or tracking cookies.</p>
+            <h3>Why</h3>
+            <p>To add your story to Trace's archive, where current graduate students read it, search it, and get replies that quote it. Your email is used only to contact you about your story.</p>
+            <h3>Who sees it</h3>
+            <ul>
+              <li><b>Before approval:</b> only the Trace reviewers.</li>
+              <li><b>After approval:</b> anyone using Trace, under the name you chose. Your email is never shown.</li>
+              <li><b>Automatic screening:</b> when you submit, your answers are sent to Trace's AI provider (Groq, in the United States) to flag things a reviewer should look at, such as contact details or other people's names. Stories are also sent to the AI provider when students' replies quote them.</li>
+            </ul>
+            <h3>Where it's stored</h3>
+            <p>On Netlify, Trace's hosting provider, on servers that may be outside Canada.</p>
+            <h3>Your choices</h3>
+            <p>Your story stays yours: you give Trace permission to show and quote it, and you can ask for it to be corrected or removed at any time. To do that, or to ask what we hold about you, contact the Trace team at <span class="sans">[contact address to be added before launch]</span>.</p>
+            <h3>Please don't include</h3>
+            <p>Names of other people (supervisors, classmates, family) without their permission, or anything you wouldn't want public. Reviewers may edit details like these, with your OK if you left an email.</p>
+            <p>If you're struggling right now, please reach out to someone you trust or a local support service; this form isn't monitored in real time.</p>
+          </div>
+        </details>
+      </div>
+    </main>
+    <script src="share.js"></script>
+  </body>
+</html>

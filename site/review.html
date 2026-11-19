@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="trace-icon.svg" />
+    <title>Review queue · Trace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="share.css" />
+  </head>
+  <body>
+    <main class="page">
+      <nav class="hero-nav">
+        <a href="index.html" class="wordmark" aria-label="Trace home"><img src="trace-mark.svg" alt="" class="wordmark-mark" width="48" height="35" />Trace</a>
+        <div class="nav-links">
+          <a href="share.html" class="nav-link">Share page</a>
+          <button type="button" class="nav-link" id="signOut" hidden>Sign out</button>
+        </div>
+      </nav>
+      <header class="hero">
+        <p class="eyebrow">For reviewers</p>
+        <h1>Review queue</h1>
+      </header>
+      <div class="share-wrap" style="max-width:960px">
+        <form id="loginView" class="login">
+          <p class="subtitle">Enter the reviewer password.</p>
+          <input id="password" type="password" autocomplete="current-password" aria-label="Reviewer password" />
+          <button class="btn primary" type="submit">Open the queue</button>
+          <div id="loginError" class="notice err" role="alert" hidden style="margin-top:1rem"></div>
+        </form>
+        <div id="queueView" hidden>
+          <div class="tabs" role="group" aria-label="Filter stories">
+            <button type="button" data-status="pending" aria-pressed="true">Needs review</button>
+            <button type="button" data-status="approved" aria-pressed="false">Published</button>
+            <button type="button" data-status="rejected" aria-pressed="false">Declined</button>
+          </div>
+          <div id="list"></div>
+        </div>
+      </div>
+    </main>
+    <script src="review.js"></script>
+  </body>
+</html>
