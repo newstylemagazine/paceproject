@@ -165,3 +165,13 @@ a Cloudflare version of the same backend, kept only for reference.)
 - The interview pages already contain written Q/A transcript text, so the extractors normalize published page content instead of performing speech-to-text.
 - The two sites use different WordPress themes and markup, so each site has its own dedicated extractor.
 - Some `tracemcgill.com` pages also embed audio clips. Those clip URLs and captions are preserved in that output metadata.
+
+## Workshop previews
+
+Work in progress lives on a branch with an open pull request. Netlify builds it at
+`deploy-preview-<number>--bucolic-basbousa-efd8d1.netlify.app`, behind a password page
+(the `PREVIEW_PASSWORD` environment variable). The live site only changes when the pull
+request is merged.
+
+The story review queue is at `/site/review.html`; its password is the `REVIEW_KEY`
+environment variable.

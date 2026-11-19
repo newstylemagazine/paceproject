@@ -68,6 +68,13 @@ const DATASETS = [
     interviewsPath: "../data/tracetransborder/interviews.json",
     isYoutube: true,
   },
+  {
+    id: "community",
+    name: "Shared stories",
+    chunksPath: "/api/stories?format=chunks",
+    interviewsPath: "/api/stories?format=interviews",
+    isYoutube: false,
+  },
 ];
 
 const queryInput = document.getElementById("query");

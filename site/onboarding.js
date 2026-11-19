@@ -9,6 +9,8 @@ const DATASETS = [
   { id: "tracemcgill", chunksPath: "../data/tracemcgill/chunks.jsonl" },
   { id: "tracephd", chunksPath: "../data/tracephd/chunks.jsonl" },
   { id: "tracetransborder", chunksPath: "../data/tracetransborder/chunks.jsonl" },
+  // Stories shared through share.html, once a reviewer approves them.
+  { id: "community", chunksPath: "/api/stories?format=chunks" },
 ];
 
 // Expanded after a persona test (a humanities researcher writing about

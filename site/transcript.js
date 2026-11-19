@@ -14,6 +14,11 @@ const DATASET_MAP = {
     interviewsPath: "../data/tracetransborder/interviews.json",
     isYoutube: true,
   },
+  community: {
+    name: "Shared stories",
+    interviewsPath: "/api/stories?format=interviews",
+    isYoutube: false,
+  },
 };
 
 const statusNode = document.getElementById("status");

@@ -1,0 +1,8 @@
+{
+  "name": "trace",
+  "private": true,
+  "description": "Trace: graduate students in conversation with the TRaCE archive",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}
