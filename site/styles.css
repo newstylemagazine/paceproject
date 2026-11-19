@@ -2037,3 +2037,8 @@ button,
 .chat-cta {
   text-align: left;
 }
+
+/* Link to "Share your story" under the home page conversation. */
+.share-cta { text-align: center; margin: 2.5rem 0 0; font: 0.95rem -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--muted); }
+.share-cta a { color: var(--brand); font-weight: 700; }
+button.nav-link { cursor: pointer; font: inherit; }
